@@ -32,7 +32,9 @@ To run OMTPlan on a problem type, e.g.,
 
 ## Documentation
 
-Further documentation available [here]()
+Further documentation available [here](https://fraleo.github.io/OMTPlan/)
+(have to make repo public before, or upgrade to pro...won't be visible 
+online otherwise)
 
 
 ## Author
