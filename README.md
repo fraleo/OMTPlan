@@ -60,7 +60,7 @@ You can find some planning problems written in PDDL in [pddl_examples](/pddl_exa
 
 ## Documentation
 
-Further documentation available [here](https://fraleo.github.io/OMTPlan/)
+Further documentation available [here](https://fraleo.github.io/OMTPlan/).
 (have to make repo public before, or upgrade to pro...won't be visible 
 online otherwise)
 
@@ -68,6 +68,8 @@ online otherwise)
 ## Author
 
 [Francesco Leofante](https://github.com/fraleo)
+
+Do not hesitate to contact me if you have problems using OMTPlan, or if you find bugs :)
 
 
 ## Citing OMTPlan
