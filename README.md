@@ -26,9 +26,9 @@ Already provided within this repo are the following external modules
 ## About OMTPlan
 
 
-### Help
+### Getting help
 
-To see the list of input arguments
+To see the list of input arguments type
 
 	./omtplan -h
 
@@ -51,7 +51,7 @@ if PDDL files describing domain and problem are in the same folder.
 To produce an SMT-LIB encoding of the planning problem type, e.g.,
 
 	./omtplan.py -smt -parallel -translate 5 problem.pddl 
-
+ 
 
 ### Some PDDL examples
 
