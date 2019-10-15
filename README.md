@@ -26,7 +26,7 @@ Already provided within this repo are the following external modules
 ## About OMTPlan
 
 
-###### Getting help
+##### Getting help
 
 To see the list of input arguments type
 
@@ -37,23 +37,23 @@ To see the list of input arguments type
 
 To run OMTPlan on a problem type, e.g.,
 
-	./omtplan -omt -parallel -domain *domain.pddl* *problem.pddl*
+	./omtplan -omt -parallel -domain **domain.pddl** **problem.pddl**
 
 or
 
-	./omtplan -omt -parallel _problem.pddl_
+	./omtplan -omt -parallel **problem.pddl**
 
 if PDDL files describing domain and problem are in the same folder.
 
 
-###### Translating to SMT-LIB
+##### Translating to SMT-LIB
  
 To produce an SMT-LIB encoding of the bounded planning problem type, e.g.,
 
-	./omtplan.py -smt -parallel -translate *bound* *problem.pddl* 
+	./omtplan.py -smt -parallel -translate **bound** **problem.pddl** 
  
 
-###### Some PDDL examples
+##### Some PDDL examples
 
 You can find some planning problems written in PDDL in [pddl_examples](/pddl_examples).
 
