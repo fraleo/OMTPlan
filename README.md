@@ -55,7 +55,7 @@ To produce an SMT-LIB encoding of the planning problem type, e.g.,
 
 ### Some PDDL examples
 
-You can find some planning problems written in PDDL in [pddl_examples](github.com/fraleo/OMTPlan/tree/master/pddl_examples).
+You can find some planning problems written in PDDL in [pddl_examples](/pddl_examples).
 
 
 ## Documentation
