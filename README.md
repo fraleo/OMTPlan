@@ -22,11 +22,16 @@ Already provided within this repo are the following external modules
 * A modified version of the [Temporal Fast Downward](http://gki.informatik.uni-freiburg.de/tools/tfd/) Python parser 
 * Binaries of [VAL](https://github.com/KCL-Planning/VAL), the plan validator devoleped and mainted by King's College 
 
-## Running OMTPlan
+## Using OMTPlan
+
+
+### Help
 
 To see the list of input arguments
 
 	./omtplan -h
+
+### Running OMTPlan
 
 To run OMTPlan on a problem type, e.g.,
 
@@ -37,10 +42,14 @@ or
 	./omtplan -omt -parallel problem.pddl
 
 if PDDL files describing domain and problem are in the same folder.
+
+### Translating to SMT-LIB
  
 To produce an SMT-LIB encoding of the planning problem type, e.g.,
 
 	./omtplan.py -smt -parallel -translate 5 problem.pddl 
+
+### Some PDDL examples
 
 You can find some planning problems written in PDDL in [pddl_examples](github.com/fraleo/OMTPlan/tree/master/pddl_examples).
 
