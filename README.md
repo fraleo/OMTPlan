@@ -35,7 +35,7 @@ To see the list of input arguments type
 
 ##### Running OMTPlan
 
-To run OMTPlan on a problem type, e.g.,
+To run OMTPlan on a *problem* type, e.g.,
 
 	./omtplan -omt -parallel -domain ** domain.pddl ** **problem.pddl**
 
