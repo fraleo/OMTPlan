@@ -33,7 +33,7 @@ To see the list of input arguments type
 	./omtplan -h
 
 
-###### Running OMTPlan
+##### Running OMTPlan
 
 To run OMTPlan on a problem type, e.g.,
 
@@ -41,7 +41,7 @@ To run OMTPlan on a problem type, e.g.,
 
 or
 
-	./omtplan -omt -parallel *problem.pddl*
+	./omtplan -omt -parallel _problem.pddl_
 
 if PDDL files describing domain and problem are in the same folder.
 
