@@ -33,13 +33,10 @@ def main(BASE_DIR):
         domain = utils.getDomainName(prb)
 
 
-    # Fetch upper bound for search
-
-    if args.b:
-        ub = args.b
-    else:
-        ub = 100
-
+    # Fetch upper bound for bounded search
+    
+    ub = args.b
+    
     # Compose encoder and search
     # according to user flags
 

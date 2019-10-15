@@ -7,6 +7,8 @@ import os
 
 DESCRIPTION = """Planner driver script."""
 
+bound = 100
+
 def _is_valid_file(arg):
     """
     Checks whether input PDDL files exist and are validate
@@ -45,7 +47,7 @@ def parse_args():
 
     parser.add_argument('-smt', action='store_true', help='Enables SMT encoding.')
 
-    parser.add_argument('-b', type=int, help='Upper bound for OMTPlan search.')
+    parser.add_argument('-b', type=int, default=bound, help='Upper bound for OMTPlan search.')
 
 
     args = parser.parse_args()
