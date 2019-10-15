@@ -446,7 +446,7 @@ def printSMTFormula(formula,problem_name):
         @param problem_name
         """
 
-        print('Printing SMT formula to {}.smt2'.format(name))
+        print('Printing SMT formula to {}.smt2'.format(problem_name))
 
         solver = Solver()
 
@@ -457,7 +457,7 @@ def printSMTFormula(formula,problem_name):
         with open('{}.smt2'.format(problem_name),'w') as fo:
             fo.write(solver.to_smt2())
 
-def printOMTFormula(formula,name):
+def printOMTFormula(formula,problem_name):
         """!
         Prints OMT planning formula in SMT-LIB syntax.
 
@@ -465,7 +465,7 @@ def printOMTFormula(formula,name):
         @param problem_name
         """
 
-        print('Printing OMT formula to {}.smt2'.format(name))
+        print('Printing OMT formula to {}.smt2'.format(problem_name))
 
         solver = Optimize()
 
