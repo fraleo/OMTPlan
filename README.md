@@ -28,12 +28,21 @@ To see the list of input arguments
 
 	./omtplan -h
 
-	
 To run OMTPlan on a problem type, e.g.,
 
-	./OMTPlan -omt -parallel problem.pddl
+	./omtplan -omt -parallel -domain domain.pddl problem.pddl
 
-For further examples on how to use OMTPlan see [here]().
+or
+
+	./omtplan -omt -parallel problem.pddl
+
+if PDDL files describing domain and problem are in the same folder.
+ 
+To produce an SMT-LIB encoding of the planning problem type, e.g.,
+
+	./omtplan.py -smt -parallel -translate 5 problem.pddl 
+
+You can find some planning problems written in PDDL in [pddl_examples](github.com/fraleo/OMTPlan/tree/master/pddl_examples).
 
 
 ## Documentation
