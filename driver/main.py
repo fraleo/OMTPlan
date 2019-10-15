@@ -46,6 +46,7 @@ def main(BASE_DIR):
 
             e = encoder.EncoderSMT(task, modifier.LinearModifier())
 
+            # Build SMT-LIB encoding and dump (no solving)
             if args.translate:
                formula = e.encode(args.translate)
 
@@ -66,6 +67,7 @@ def main(BASE_DIR):
 
             e = encoder.EncoderSMT(task, modifier.ParallelModifier())
 
+            # Build SMT-LIB encoding and dump (no solving)
             if args.translate:
                 formula = e.encode(args.translate)
 
@@ -95,6 +97,7 @@ def main(BASE_DIR):
         elif args.parallel:
             e = encoder.EncoderOMT(task, modifier.ParallelModifier())
 
+            # Build SMT-LIB encoding and dump (no solving)
             if args.translate:
                 
                 formula = e.encode(args.translate)

@@ -27,7 +27,7 @@ def parse_args():
     Specifies valid arguments for OMTPlan
     """
 
-    parser = argparse.ArgumentParser(description = DESCRIPTION)
+    parser = argparse.ArgumentParser(description = DESCRIPTION,formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('problem', metavar='problem.pddl', help='Path to PDDL problem file', type=_is_valid_file)
 
