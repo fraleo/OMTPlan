@@ -22,6 +22,7 @@ Already provided within this repo are the following external modules
 * A modified version of the [Temporal Fast Downward](http://gki.informatik.uni-freiburg.de/tools/tfd/) Python parser 
 * Binaries of [VAL](https://github.com/KCL-Planning/VAL), the plan validator devoleped and mainted by King's College 
 
+
 ## About OMTPlan
 
 
@@ -67,6 +68,7 @@ online otherwise)
 ## Author
 
 [Francesco Leofante](https://github.com/fraleo)
+
 
 ## Citing OMTPlan
 
