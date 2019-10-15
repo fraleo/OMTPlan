@@ -22,7 +22,7 @@ Already provided within this repo are the following external modules
 * A modified version of the [Temporal Fast Downward](http://gki.informatik.uni-freiburg.de/tools/tfd/) Python parser 
 * Binaries of [VAL](https://github.com/KCL-Planning/VAL), the plan validator devoleped and mainted by King's College 
 
-## Using OMTPlan
+## About OMTPlan
 
 
 ### Help
@@ -30,6 +30,7 @@ Already provided within this repo are the following external modules
 To see the list of input arguments
 
 	./omtplan -h
+
 
 ### Running OMTPlan
 
@@ -43,11 +44,13 @@ or
 
 if PDDL files describing domain and problem are in the same folder.
 
+
 ### Translating to SMT-LIB
  
 To produce an SMT-LIB encoding of the planning problem type, e.g.,
 
 	./omtplan.py -smt -parallel -translate 5 problem.pddl 
+
 
 ### Some PDDL examples
 
