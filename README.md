@@ -20,7 +20,6 @@ To run OMTPlan, make sure you have the following on your machine
 Already provided within this repo are the following external modules
 
 * A modified version of the [Temporal Fast Downward](http://gki.informatik.uni-freiburg.de/tools/tfd/) Python parser 
-  (see "Using the Context-enhanced Additive Heuristic for Temporal and Numeric Planning", Eyerich et al., ICAPS'09)
 * Binaries of [VAL](https://github.com/KCL-Planning/VAL), the plan validator devoleped and mainted by King's College 
 
 ## Running OMTPlan
@@ -33,6 +32,8 @@ To see the list of input arguments
 To run OMTPlan on a problem type, e.g.,
 
 	./OMTPlan -omt -parallel problem.pddl
+
+For further examples on how to use OMTPlan see [here]().
 
 
 ## Documentation
