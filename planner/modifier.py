@@ -14,6 +14,7 @@ class Modifier():
 class LinearModifier(Modifier):
     """
     Linear modifier, contains method to implement sequential execution semantics.
+
     """
 
     def do_encode(self, variables, bound):

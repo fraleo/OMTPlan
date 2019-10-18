@@ -12,7 +12,7 @@ import loopformula
 class Encoder():
     """
     Base encoder class. Defines methods to build standard
-    Planning as SAT encodings -- i.e., Kautz and Selman 96, Rintanen 09
+    state-based encodings -- i.e., Rintanen 09
     """
 
     def __init__(self, task, modifier):
@@ -29,7 +29,10 @@ class Encoder():
          self.depends_on,
          self.axioms_by_layer) = self._sort_axioms()
 
-        self.mutexes = self._computeMutexes()
+        if self.modifier.__class__.__name__ == "LinearModifier":
+            self.mutexes = self._computeSerialMutexes()
+        else:
+            self.mutexes = self._computeParallelMutexes()
 
     def _ground(self):
         """
@@ -67,7 +70,27 @@ class Encoder():
         return axioms_by_name, depends_on, axioms_by_layer
 
 
-    def _computeMutexes(self):
+    def _computeSerialMutexes(self):
+        """!
+        Computes mutually exclusive actions for serial encodings,
+        i.e., all actions are mutually exclusive
+        
+        @return mutex: list of tuples defining action mutexes
+        """
+        # Stores mutexes
+        mutexes = []
+
+        for a1 in self.actions:
+            for a2 in self.actions:
+                # Skip same action
+                if not a1.name == a2.name:
+                            mutexes.append((a1,a2))
+
+        mutexes = set(tuple(sorted(t)) for t in mutexes)
+
+        return mutexes
+
+    def _computeParallelMutexes(self):
         """!
         Computes mutually exclusive actions:
         Two actions (a1, a2) are mutex if:

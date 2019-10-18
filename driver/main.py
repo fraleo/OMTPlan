@@ -50,7 +50,7 @@ def main(BASE_DIR):
             if args.translate:
                formula = e.encode(args.translate)
 
-               # Print SMT planning formula (linear)
+               # Print SMT planning formula (linear) to file
                utils.printSMTFormula(formula,task.task_name)
 
             else:
@@ -71,7 +71,7 @@ def main(BASE_DIR):
             if args.translate:
                 formula = e.encode(args.translate)
 
-                # Print SMT planning formula (parallel)
+                # Print SMT planning formula (parallel) to file
                 utils.printSMTFormula(formula,task.task_name)
             else:
                 s = search.SearchSMT(e,ub)
@@ -85,14 +85,21 @@ def main(BASE_DIR):
     elif args.omt:
 
         if args.linear:
-            # Given the current implementation, sequential execution semantics
-            # conflicts with ASAP constraints. Hence, no support for linear+OMT atm.
 
-            #TODO: modify mutex computation when linear is selected (i.e. all actions are mutex)
+            e = encoder.EncoderOMT(task, modifier.LinearModifier())
 
-            print('Sequential execution semantics currently not supported in combination with OMT.')
-            print('Exiting now...')
-            sys.exit()
+            # Build SMT-LIB encoding and dump (no solving)
+            if args.translate:
+                
+                formula = e.encode(args.translate)
+
+                # Print OMT planning formula (linear) to file
+
+                utils.printOMTFormula(formula,task.task_name)
+                
+            else:
+                s = search.SearchOMT(e,ub)
+                plan = s.do_search()
 
         elif args.parallel:
             e = encoder.EncoderOMT(task, modifier.ParallelModifier())
@@ -102,7 +109,7 @@ def main(BASE_DIR):
                 
                 formula = e.encode(args.translate)
 
-                # Print OMT planning formula (parallel)
+                # Print OMT planning formula (parallel) to file
 
                 utils.printOMTFormula(formula,task.task_name)
                 
