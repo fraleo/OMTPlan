@@ -60,7 +60,7 @@ You can find some planning problems written in PDDL in [pddl_examples](/pddl_exa
 
 ## Documentation
 
-Further documentation is available with Doxygen.
+Further documentation is available [here](https://fraleo.github.io/OMTPlan/).
 
 
 ## Author
