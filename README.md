@@ -40,7 +40,7 @@ To see the list of input arguments, type
 
 To run OMTPlan on a problem, type, e.g.,
 
-	./omtplan -omt -parallel -domain *domain.pddl* *problem.pddl*
+	./omtplan -omt -parallel -domain domain.pddl problem.pddl
 
 or
 
