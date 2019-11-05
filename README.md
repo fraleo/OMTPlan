@@ -15,7 +15,8 @@ Clone the OMTPlan repository in your favourite folder.
 To run OMTPlan, make sure you have the following on your machine
 
 * Python 2.7
-* Z3 [4.8.6] and related Python API (see: https://github.com/Z3Prover/z3)
+* Z3 (4.8.6) and its [Python API](see: https://github.com/Z3Prover/z3) (make sure you add z3 Python bindings to your python search path)
+* [NetworkX](https://networkx.github.io/), a Python package for the creation and manipulation of graphs (pip install networkx).
 
 Already provided within this repo are the following external modules
 
