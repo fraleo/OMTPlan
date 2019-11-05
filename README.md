@@ -16,7 +16,7 @@ To run OMTPlan, make sure you have the following on your machine
 
 * Python 2.7
 * [Z3](https://github.com/Z3Prover/z3) (4.8.6) and its Python API (make sure you add z3 Python bindings to your Python search path)
-* [NetworkX](https://networkx.github.io/) (as simple as pip install networkx)
+* [NetworkX](https://networkx.github.io/) (as simple as `pip install networkx`)
 
 
 
