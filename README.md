@@ -3,7 +3,7 @@
 OMTPlan provides a Python framework for planning in numeric domains.
 
 
-## Installation
+## Obtaining OMTPlan
 
 Clone the OMTPlan repository in your favourite folder.
 	
