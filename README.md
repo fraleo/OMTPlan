@@ -1,6 +1,6 @@
 # OMTPlan: Optimal Planning Modulo Theories
 
-OMTPlan provides a Python framework for planning in numeric domains.
+OMTPlan provides a Python framework for cost-optimal planning in numeric domains.
 
 
 ## Obtaining OMTPlan
@@ -26,7 +26,7 @@ Already provided within this repo are the following external modules
 * Binaries of [VAL](https://github.com/KCL-Planning/VAL), the plan validator devoleped and mainted by King's College 
 
 
-## About OMTPlan
+## Using OMTPlan
 
 
 ##### Getting help
