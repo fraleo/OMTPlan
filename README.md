@@ -17,13 +17,14 @@ To run OMTPlan, make sure you have the following on your machine
 * Python 2.7
 * [Z3](https://github.com/Z3Prover/z3) (4.8.6) and its Python API (make sure you add z3 Python bindings to your Python search path)
 * [NetworkX](https://networkx.github.io/) (as simple as `pip install networkx`)
+* [VAL plan validation software](https://github.com/KCL-Planning/VAL). [Here](http://www.fast-downward.org/SettingUpVal) you can find some instructions to help you set it up. Add the validate binary to  the /bi folder.
 
 
 
 Already provided within this repo are the following external modules
 
 * A modified version of the [Temporal Fast Downward](http://gki.informatik.uni-freiburg.de/tools/tfd/) Python parser 
-* Binaries of [VAL](https://github.com/KCL-Planning/VAL), the plan validator devoleped and mainted by King's College 
+
 
 
 ## Using OMTPlan
