@@ -91,7 +91,7 @@ class Encoder():
         """!
         Computes mutually exclusive actions for serial encodings,
         i.e., all actions are mutually exclusive
-        
+
         @return mutex: list of tuples defining action mutexes
         """
         # Stores mutexes
@@ -365,7 +365,7 @@ class Encoder():
                         ## Apparently boolean subgoal may still end up
                         ## in numeric condition objects...
                         if utils.isBoolFluent(part):
-                            propositional_subgoal = encodePropositionalGoals(part)
+                            propositional_subgoal = _encodePropositionalGoals(part)
                             for sg in propositional_subgoal:
                                 numeric_subgoal.append(sg)
                         if isinstance(part,pddl.conditions.FunctionComparison):
