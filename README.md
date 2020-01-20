@@ -77,9 +77,9 @@ Do not hesitate to contact me if you have problems using OMTPlan, or if you find
 
 ## Citing OMTPlan
 
-If you ever decide to use OMTPlan for your experiments, please cite
+If you decide to use OMTPlan for your experiments, please cite
 
-"Optimal Planning Modulo Theories", Some authors, Some Conf, Sometime
+"Optimal Planning Modulo Theories", Leofante, Giunchiglia, Abraham, Tacchella, (currently under submission)
 
 
 
