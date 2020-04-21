@@ -79,7 +79,7 @@ Do not hesitate to contact me if you have problems using OMTPlan, or if you find
 
 If you decide to use OMTPlan for your experiments, please cite
 
-"Optimal Planning Modulo Theories", Leofante, Giunchiglia, Abraham, Tacchella, (currently under submission)
+"Optimal Planning Modulo Theories", Leofante, Giunchiglia, Abraham, Tacchella, Proceedings of IJCAI 2020.
 
 
 
