@@ -79,7 +79,20 @@ Do not hesitate to contact me if you have problems using OMTPlan, or if you find
 
 If you decide to use OMTPlan for your experiments, please cite
 
-"Optimal Planning Modulo Theories", Leofante, Giunchiglia, Abraham, Tacchella, Proceedings of IJCAI 2020.
+	@inproceedings{LeofanteGAT20,
+	  author    = {Francesco Leofante and
+		       Enrico Giunchiglia and
+		       Erika {\'{A}}brah{\'{a}}m and
+		       Armando Tacchella},
+	  editor    = {Christian Bessiere},
+	  title     = {Optimal Planning Modulo Theories},
+	  booktitle = {Proceedings of the Twenty-Ninth International Joint Conference on
+		       Artificial Intelligence, {IJCAI} 2020 },
+	  pages     = {4128--4134},
+	  publisher = {ijcai.org},
+	  year      = {2020},
+	  url       = {https://doi.org/10.24963/ijcai.2020/571}
+	}
 
 
 
