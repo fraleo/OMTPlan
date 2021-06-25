@@ -1,0 +1,17 @@
+digraph "translate.normalize.ConditionProxy"
+{
+  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
+  node [fontname="Helvetica",fontsize="10",shape=record];
+  rankdir="LR";
+  Node1 [label="translate.normalize.Condition\lProxy",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
+  Node2 -> Node1 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node2 [label="object",height=0.2,width=0.4,color="grey75", fillcolor="white", style="filled"];
+  Node1 -> Node3 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node3 [label="translate.normalize.Axiom\lConditionProxy",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1normalize_1_1AxiomConditionProxy.html"];
+  Node1 -> Node4 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node4 [label="translate.normalize.Effect\lConditionProxy",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1normalize_1_1EffectConditionProxy.html"];
+  Node1 -> Node5 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node5 [label="translate.normalize.Goal\lConditionProxy",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1normalize_1_1GoalConditionProxy.html"];
+  Node1 -> Node6 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node6 [label="translate.normalize.Precondition\lProxy",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1normalize_1_1PreconditionProxy.html"];
+}

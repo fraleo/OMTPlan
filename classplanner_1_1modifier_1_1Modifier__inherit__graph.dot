@@ -1,0 +1,10 @@
+digraph "planner.modifier.Modifier"
+{
+  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
+  node [fontname="Helvetica",fontsize="10",shape=record];
+  Node1 [label="planner.modifier.Modifier",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
+  Node1 -> Node2 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node2 [label="planner.modifier.LinearModifier",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classplanner_1_1modifier_1_1LinearModifier.html"];
+  Node1 -> Node3 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node3 [label="planner.modifier.Parallel\lModifier",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classplanner_1_1modifier_1_1ParallelModifier.html"];
+}

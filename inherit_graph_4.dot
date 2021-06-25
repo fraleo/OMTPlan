@@ -1,0 +1,13 @@
+digraph "Graphical Class Hierarchy"
+{
+  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
+  node [fontname="Helvetica",fontsize="10",shape=record];
+  rankdir="LR";
+  Node1 [label="translate.build_model.BuildRule",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1build__model_1_1BuildRule.html"];
+  Node1 -> Node2 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node2 [label="translate.build_model.JoinRule",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1build__model_1_1JoinRule.html"];
+  Node1 -> Node3 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node3 [label="translate.build_model.ProductRule",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1build__model_1_1ProductRule.html"];
+  Node1 -> Node4 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node4 [label="translate.build_model.ProjectRule",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1build__model_1_1ProjectRule.html"];
+}

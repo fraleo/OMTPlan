@@ -1,0 +1,37 @@
+digraph "translate.pddl.conditions.Condition"
+{
+  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
+  node [fontname="Helvetica",fontsize="10",shape=record];
+  rankdir="LR";
+  Node1 [label="translate.pddl.conditions.\lCondition",height=0.2,width=0.4,color="black", fillcolor="grey75", style="filled", fontcolor="black"];
+  Node2 -> Node1 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node2 [label="object",height=0.2,width=0.4,color="grey75", fillcolor="white", style="filled"];
+  Node1 -> Node3 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node3 [label="translate.pddl.conditions.\lConstantCondition",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1ConstantCondition.html"];
+  Node3 -> Node4 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node4 [label="translate.pddl.conditions.\lFalsity",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1Falsity.html"];
+  Node3 -> Node5 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node5 [label="translate.pddl.conditions.\lTruth",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1Truth.html"];
+  Node1 -> Node6 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node6 [label="translate.pddl.conditions.\lFunctionComparison",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1FunctionComparison.html"];
+  Node6 -> Node7 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node7 [label="translate.pddl.conditions.\lNegatedFunctionComparison",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1NegatedFunctionComparison.html"];
+  Node1 -> Node8 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node8 [label="translate.pddl.conditions.\lJunctorCondition",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1JunctorCondition.html"];
+  Node8 -> Node9 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node9 [label="translate.pddl.conditions.\lConjunction",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1Conjunction.html"];
+  Node8 -> Node10 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node10 [label="translate.pddl.conditions.\lDisjunction",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1Disjunction.html"];
+  Node1 -> Node11 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node11 [label="translate.pddl.conditions.\lLiteral",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1Literal.html"];
+  Node11 -> Node12 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node12 [label="translate.pddl.conditions.Atom",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1Atom.html"];
+  Node11 -> Node13 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node13 [label="translate.pddl.conditions.\lNegatedAtom",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1NegatedAtom.html"];
+  Node1 -> Node14 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node14 [label="translate.pddl.conditions.\lQuantifiedCondition",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1QuantifiedCondition.html"];
+  Node14 -> Node15 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node15 [label="translate.pddl.conditions.\lExistentialCondition",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1ExistentialCondition.html"];
+  Node14 -> Node16 [dir="back",color="midnightblue",fontsize="10",style="solid",fontname="Helvetica"];
+  Node16 [label="translate.pddl.conditions.\lUniversalCondition",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1pddl_1_1conditions_1_1UniversalCondition.html"];
+}

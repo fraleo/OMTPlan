@@ -1,0 +1,7 @@
+digraph "Graphical Class Hierarchy"
+{
+  edge [fontname="Helvetica",fontsize="10",labelfontname="Helvetica",labelfontsize="10"];
+  node [fontname="Helvetica",fontsize="10",shape=record];
+  rankdir="LR";
+  Node1 [label="translate.build_model.Match\lGenerator",height=0.2,width=0.4,color="black", fillcolor="white", style="filled",URL="$classtranslate_1_1build__model_1_1MatchGenerator.html"];
+}
