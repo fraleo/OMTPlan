@@ -20,14 +20,13 @@ from z3 import *
 import subprocess
 
 
-
 class Plan():
     """
     Plan objects are instances of this class.
     Defines methods to extract, validate and print plans.
     """
 
-    def __init__(self,model, encoder, objective=None):
+    def __init__(self, model, encoder, objective=None):
         self.plan = self._extractPlan(model, encoder)
         self.cost = self._extractCost(objective)
 
@@ -49,11 +48,10 @@ class Plan():
         for step in range(encoder.horizon):
             for action in encoder.actions:
                 if is_true(model[encoder.action_variables[step][action.name]]):
-                    plan[index] =  action.name
+                    plan[index] = action.name
                     index = index + 1
 
         return plan
-
 
     def _extractCost(self, objective=None):
         """!
@@ -118,7 +116,6 @@ class Plan():
         else:
             return plan
 
-
     def pprint(self, dest):
         """!
         Prints plan to file.
@@ -127,7 +124,7 @@ class Plan():
         """
 
         # Default destination
-        dest = dest+'/plan_file.txt'
+        dest = dest + '/plan_file.txt'
 
         print('Printing plan to {}'.format(dest))
 
@@ -135,5 +132,35 @@ class Plan():
 
         plan_to_str = '\n'.join('{}: {}'.format(key, val) for key, val in self.plan.items())
 
-        with open(dest,'w') as f:
+        with open(dest, 'w') as f:
             f.write(plan_to_str)
+
+    def general_failure_constraints(self, model, encoder, plan, failed_step):
+        """
+        negate action under the same states
+        """
+        min_step = 0
+        max_step = max(encoder.boolean_variables.keys())
+        failed_action = encoder.action_variables[failed_step][plan[failed_step]]
+
+        action_str = str(failed_action)[:str(failed_action).rfind('_')]
+
+        horizon_state = []
+        horizon_action = []
+        for i in range(max_step):
+            horizon_state.append([])
+            horizon_action.append(encoder.action_variables[int(i)][action_str])
+
+        for s in encoder.boolean_variables[failed_step].values():
+            # state_str = str(s)[:-2]
+            state_str = str(s)[:str(s).rfind('_')]
+            for i in range(max_step):
+                if model[s]:
+                    horizon_state[i].append(encoder.boolean_variables[int(i)][state_str])
+                else:
+                    horizon_state[i].append(Not(encoder.boolean_variables[int(i)][state_str]))
+
+        constraints = []
+        for i in range(max_step):
+            constraints.append(Implies(And(horizon_state[i]), Not(horizon_action[i])))
+        return constraints
