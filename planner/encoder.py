@@ -22,7 +22,7 @@ import utils
 from translate import instantiate
 from translate import numeric_axiom_rules
 import numpy as np
-import loopformula
+import planner.loopformula as loopformula
 
 
 class Encoder():
@@ -190,7 +190,7 @@ class Encoder():
                     if num_a1 & num_a2:
                         mutexes.append((a1, a2))
 
-        mutexes = set(tuple(sorted(t)) for t in mutexes)
+        mutexes = set(tuple(t) for t in mutexes)
 
         return mutexes
 
