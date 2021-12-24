@@ -623,7 +623,7 @@ class EncoderSMT(Encoder):
 
         self.formula['frame'] += self.encodeFrame(last_horizon)
 
-        self.formula['action'] += self.encodeActions(last_horizon)
+        self.formula['actions'] += self.encodeActions(last_horizon)
 
         return self.formula
 
