@@ -18,6 +18,7 @@
 
 from z3 import *
 
+
 class Modifier():
     """
     Modifier class.
@@ -28,6 +29,7 @@ class Modifier():
         Basic encoding.
         """
         raise NotImplementedError
+
 
 class LinearModifier(Modifier):
     """
@@ -47,10 +49,11 @@ class LinearModifier(Modifier):
         c = []
 
         for step in range(bound):
-            pbc = [(var,1) for var in variables[step].values()]
-            c.append(PbLe(pbc,1))
+            pbc = [(var, 1) for var in variables[step].values()]
+            c.append(PbLe(pbc, 1))
 
         return c
+
 
 class ParallelModifier(Modifier):
     """
@@ -71,6 +74,6 @@ class ParallelModifier(Modifier):
 
         for step in range(bound):
             for pair in mutexes:
-                c.append(Or(Not(variables[step][pair[0].name]),Not(variables[step][pair[1].name])))
+                c.append(Or(Not(variables[step][pair[0].name]), Not(variables[step][pair[1].name])))
 
         return c
