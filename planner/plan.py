@@ -135,32 +135,48 @@ class Plan():
         with open(dest, 'w') as f:
             f.write(plan_to_str)
 
-    def general_failure_constraints(self, model, encoder, plan, failed_step):
+
+    def general_failure_constraints_naive(self, model, encoder, plan, failed_step):
         """
         negate action under the same states
         """
-        min_step = 0
-        max_step = max(encoder.boolean_variables.keys())
         failed_action = encoder.action_variables[failed_step][plan[failed_step]]
-
-        action_str = str(failed_action)[:str(failed_action).rfind('_')]
-
         horizon_state = []
-        horizon_action = []
-        for i in range(max_step):
-            horizon_state.append([])
-            horizon_action.append(encoder.action_variables[int(i)][action_str])
+        for state in encoder.boolean_variables[failed_step].values():
+            if model[state]:
+                horizon_state.append(state)
+            else:
+                horizon_state.append(Not(state))
+        # logger.info(f'naive general failure constraints')
+        return [Implies(And(horizon_state), Not(failed_action))]
 
-        for s in encoder.boolean_variables[failed_step].values():
-            # state_str = str(s)[:-2]
-            state_str = str(s)[:str(s).rfind('_')]
-            for i in range(max_step):
-                if model[s]:
-                    horizon_state[i].append(encoder.boolean_variables[int(i)][state_str])
-                else:
-                    horizon_state[i].append(Not(encoder.boolean_variables[int(i)][state_str]))
 
-        constraints = []
-        for i in range(max_step):
-            constraints.append(Implies(And(horizon_state[i]), Not(horizon_action[i])))
-        return constraints
+    # def general_failure_constraints(self, model, encoder, plan, failed_step):
+    #     """
+    #     negate action under the same states
+    #     """
+    #     min_step = 0
+    #     max_step = max(encoder.boolean_variables.keys())
+    #     failed_action = encoder.action_variables[failed_step][plan[failed_step]]
+    #
+    #     action_str = str(failed_action)[:str(failed_action).rfind('_')]
+    #
+    #     horizon_state = []
+    #     horizon_action = []
+    #     for i in range(max_step):
+    #         horizon_state.append([])
+    #         horizon_action.append(encoder.action_variables[int(i)][action_str])
+    #
+    #     for s in encoder.boolean_variables[failed_step].values():
+    #         # state_str = str(s)[:-2]
+    #         state_str = str(s)[:str(s).rfind('_')]
+    #         for i in range(max_step):
+    #             if model[s]:
+    #                 horizon_state[i].append(encoder.boolean_variables[int(i)][state_str])
+    #             else:
+    #                 horizon_state[i].append(Not(encoder.boolean_variables[int(i)][state_str]))
+    #
+    #     constraints = []
+    #     for i in range(max_step):
+    #         constraints.append(Implies(And(horizon_state[i]), Not(horizon_action[i])))
+    #     return constraints

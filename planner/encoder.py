@@ -101,7 +101,7 @@ class Encoder():
                 if not a1.name == a2.name:
                     mutexes.append((a1, a2))
 
-        mutexes = set(tuple(sorted(t)) for t in mutexes)
+        mutexes = set(tuple(sorted(t, key=lambda a: a.__hash__())) for t in mutexes)
 
         return mutexes
 
@@ -479,6 +479,20 @@ class Encoder():
 
         return actions
 
+    def encodeActionForStep(self, start_horizon=0):
+        step_action_constraints = []
+
+        for step in range(start_horizon, self.horizon):
+            step_action_variables = []
+            for action in self.actions:
+                action_variable = self.action_variables[step][action.name]
+                step_action_variables.append(action_variable)
+            step_action_constraints.append(z3.Or(step_action_variables))
+
+        return step_action_constraints
+
+
+
     def encodeFrame(self, start_horizon=0):
         """!
         Encode explanatory frame axioms: a predicate retains its value unless
@@ -545,11 +559,11 @@ class Encoder():
 
         @return axioms that specify execution semantics.
         """
-
-        try:
-            return self.modifier.do_encode(self.action_variables, self.horizon)
-        except:
-            return self.modifier.do_encode(self.action_variables, self.mutexes, self.horizon)
+        return self.modifier.do_encode(variables=self.action_variables, bound=self.horizon)
+        # try:
+        #     return self.modifier.do_encode(self.action_variables, self.horizon)
+        # except:
+        #     return self.modifier.do_encode(self.action_variables, self.mutexes, self.horizon)
 
     def encode(self, horizon):
         """
@@ -602,6 +616,10 @@ class EncoderSMT(Encoder):
         # Encode execution semantics (lin/par)
 
         self.formula['sem'] = self.encodeExecutionSemantics()
+
+        # There should be at least one action for each step
+
+        self.formula['step'] = self.encodeActionForStep()
 
         return self.formula
 
