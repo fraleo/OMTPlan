@@ -491,8 +491,6 @@ class Encoder():
 
         return step_action_constraints
 
-
-
     def encodeFrame(self, start_horizon=0):
         """!
         Encode explanatory frame axioms: a predicate retains its value unless
@@ -642,6 +640,9 @@ class EncoderSMT(Encoder):
         self.formula['frame'] += self.encodeFrame(last_horizon)
 
         self.formula['actions'] += self.encodeActions(last_horizon)
+
+        # there should be at least one action for each step
+        self.formula['step'] += self.encodeActionForStep(last_horizon)
 
         return self.formula
 
