@@ -135,7 +135,6 @@ class Plan():
         with open(dest, 'w') as f:
             f.write(plan_to_str)
 
-
     def general_failure_constraints_naive(self, model, encoder, plan, failed_step):
         """
         negate action under the same states
@@ -150,6 +149,33 @@ class Plan():
         # logger.info(f'naive general failure constraints')
         return [Implies(And(horizon_state), Not(failed_action))]
 
+    def collision_generalization_constraints(self, objects, model, encoder, plan, failed_step):
+        min_step = 0
+        max_step = max(encoder.boolean_variables.keys())
+        failed_action = encoder.action_variables[failed_step][plan[failed_step]]
+
+        horizon_state = []
+        horizon_action = []
+        action_str = str(failed_action)[:-2]
+        for i in range(max_step):
+            horizon_state.append([])
+            horizon_action.append(encoder.action_variables[int(i)][action_str])
+
+        for state in encoder.boolean_variables[failed_step].values():
+            state_str = str(state)[:-2]
+            members = set(state_str.split('__'))
+            if len(members.union(objects)) == 0:
+                break
+            for i in range(max_step):
+                if model[state]:
+                    horizon_state[i].append(encoder.boolean_variables[int(i)][state_str])
+                else:
+                    horizon_state[i].append(Not(encoder.boolean_variables[int(i)][state_str]))
+
+        constraints = []
+        for i in range(max_step):
+            constraints.append(Implies(And(horizon_state[i]), Not(horizon_action[i])))
+        return constraints
 
     # def general_failure_constraints(self, model, encoder, plan, failed_step):
     #     """
