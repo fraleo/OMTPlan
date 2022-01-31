@@ -21,12 +21,39 @@ import subprocess
 
 
 class Plan():
+
+    def __init__(self):
+        pass
+
+    def _extractPlan(self, model, encoder):
+        raise NotImplementedError
+
+    def _extractCost(self, objective=None):
+        """!
+        Extracts cost of plan.
+
+        @param objective: Z3 object that contains objective function (default None).
+
+        @return cost: plan cost (metric value if problem is metric, plan length otherwise)
+        """
+
+        if objective:
+            cost = objective.value()
+        else:
+            cost = len(self.plan)
+
+        return cost
+
+
+class SRPlan(Plan):
     """
     Plan objects are instances of this class.
     Defines methods to extract, validate and print plans.
     """
 
     def __init__(self, model, encoder, objective=None):
+        super(SRPlan, self).__init__()
+
         self.plan = self._extractPlan(model, encoder)
         self.cost = self._extractCost(objective)
 
@@ -206,3 +233,75 @@ class Plan():
     #     for i in range(max_step):
     #         constraints.append(Implies(And(horizon_state[i]), Not(horizon_action[i])))
     #     return constraints
+
+
+class MRPlan(Plan):
+    def __init__(self, model, encoder, objective=None):
+        super(MRPlan, self).__init__()
+
+        self.plan = self._extractPlan(model, encoder)
+        self.cost = self._extractCost(objective)
+
+    def _extractPlan(self, model, encoder):
+        """!
+        Extracts plan from model of the formula.
+        Plan returned is parallel.
+
+        @param model: Z3 model of the planning formula.
+        @param encoder: encoder object, contains maps variable/variable names.
+
+        @return  plan: dictionary containing plan. Keys are steps, values are actions.
+        """
+        plan = {}
+
+        for step in range(encoder.horizon):
+            for action in encoder.actions:
+                if is_true(model[encoder.action_variables[step][action.name]]):
+                    if step not in plan:
+                        plan[step] = [action.name]
+                    else:
+                        plan[step].append(action.name)
+        return plan
+
+    def general_failure_constraints_naive(self, model, encoder, plan, failed_step):
+        """
+        negate action under the same states
+        """
+        failed_action_lst = [encoder.action_variables[failed_step][failed_sr_action]
+                             for failed_sr_action in plan[failed_step]]
+        horizon_state = []
+        for state in encoder.boolean_variables[failed_step].values():
+            if model[state]:
+                horizon_state.append(state)
+            else:
+                horizon_state.append(Not(state))
+        # logger.info(f'naive general failure constraints')
+        return [Implies(And(horizon_state), Not(And(failed_action_lst)))]
+
+    def collision_generalization_constraints(self, objects, model, encoder, plan, failed_step):
+        min_step = 0
+        max_step = max(encoder.boolean_variables.keys())
+        failed_action = encoder.action_variables[failed_step][plan[failed_step]]
+
+        horizon_state = []
+        horizon_action = []
+        action_str = str(failed_action)[:-2]
+        for i in range(max_step):
+            horizon_state.append([])
+            horizon_action.append(encoder.action_variables[int(i)][action_str])
+
+        for state in encoder.boolean_variables[failed_step].values():
+            state_str = str(state)[:-2]
+            members = set(state_str.split('__'))
+            if len(members.union(objects)) == 0:
+                break
+            for i in range(max_step):
+                if model[state]:
+                    horizon_state[i].append(encoder.boolean_variables[int(i)][state_str])
+                else:
+                    horizon_state[i].append(Not(encoder.boolean_variables[int(i)][state_str]))
+
+        constraints = []
+        for i in range(max_step):
+            constraints.append(Implies(And(horizon_state[i]), Not(horizon_action[i])))
+        return constraints

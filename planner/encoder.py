@@ -47,6 +47,8 @@ class Encoder():
 
         if self.modifier.__class__.__name__ == "LinearModifier":
             self.mutexes = self._computeSerialMutexes()
+        elif self.modifier.__class__.__name__ == 'MRLinearModifier':
+            self.mutexes = self._computeMRSerialMutexes()
         else:
             self.mutexes = self._computeParallelMutexes()
 
@@ -99,6 +101,61 @@ class Encoder():
             for a2 in self.actions:
                 # Skip same action
                 if not a1.name == a2.name:
+                    mutexes.append((a1, a2))
+
+        mutexes = set(tuple(sorted(t, key=lambda a: a.__hash__())) for t in mutexes)
+
+        return mutexes
+
+    def _computeMRSerialMutexes(self):
+        """
+        Multiple robots can perform actions at the same step.
+
+        (1) If the actions correspond to different robots, then they must be mutually excluded.
+
+        (2) intersection pre_a1 and eff_a2 (or viceversa) is non-empty
+
+        (3) intersection between eff_a1+ and eff_a2- (or viceversa) is non-empty
+        """
+        # stores mutexes
+        mutexes = []
+
+        for a1 in self.actions:
+            for a2 in self.actions:
+                if a1.name == a2.name:
+                    continue
+                a1_cor_agent = a1.name.split(' ')[1]
+                a2_cor_agent = a2.name.split(' ')[1]
+                # Condition 1
+                if a1_cor_agent == a2_cor_agent:
+                    mutexes.append((a1, a2))
+                    continue
+
+                # Fetch all propositional fluents involved in effects of a1
+                add_a1 = set([add[1] for add in a1.add_effects])
+                del_a1 = set([de[1] for de in a1.del_effects])
+                # Fetch all propositional fluents involved in effects of a2
+                add_a2 = set([add[1] for add in a2.add_effects])
+                del_a2 = set([de[1] for de in a2.del_effects])
+
+                # Condition 2
+                if any(el in add_a2 for el in a1.condition):
+                    mutexes.append((a1, a2))
+
+                if any(el in del_a2 for el in a1.condition):
+                    mutexes.append((a1, a2))
+
+                if any(el in add_a1 for el in a2.condition):
+                    mutexes.append((a1, a2))
+
+                if any(el in del_a1 for el in a2.condition):
+                    mutexes.append((a1, a2))
+
+                # Condition 3
+                if add_a1 & del_a2:
+                    mutexes.append((a1, a2))
+
+                if add_a2 & del_a1:
                     mutexes.append((a1, a2))
 
         mutexes = set(tuple(sorted(t, key=lambda a: a.__hash__())) for t in mutexes)
@@ -636,6 +693,92 @@ class EncoderSMT(Encoder):
         for step in range(last_horizon, self.horizon):
             pbc = [(var, 1) for var in self.action_variables[step].values()]
             self.formula['sem'].append(PbLe(pbc, 1))
+
+        self.formula['frame'] += self.encodeFrame(last_horizon)
+
+        self.formula['actions'] += self.encodeActions(last_horizon)
+
+        # there should be at least one action for each step
+        self.formula['step'] += self.encodeActionForStep(last_horizon)
+
+        return self.formula
+
+
+class MREncoderSMT(Encoder):
+    """
+    Class that defines method to build SMT encoding.
+    """
+
+    def encode(self, horizon):
+        """!
+        Builds SMT encoding.
+
+        @param horizon: horizon for bounded planning formula.
+        @return formula: dictionary containing subformulas.
+        """
+
+        # initialize horizon
+        self.horizon = horizon
+
+        # Create variables
+        self.createVariables()
+
+        # Start encoding formula
+
+        self.formula = defaultdict(list)
+
+        # Encode initial state axioms
+
+        self.formula['initial'] = self.encodeInitialState()
+
+        # Encode goal state axioms
+
+        self.formula['goal'] = self.encodeGoalState()
+
+        # Encode universal axioms
+
+        self.formula['actions'] = self.encodeActions()
+
+        # Encode explanatory frame axioms
+
+        self.formula['frame'] = self.encodeFrame()
+
+        # Encode execution semantics (lin/par)
+
+        self.formula['sem'] = self.encodeExecutionSemantics()
+
+        # There should be at least one action for each step
+
+        self.formula['step'] = self.encodeActionForStep()
+
+        return self.formula
+
+    def encodeExecutionSemantics(self):
+        """!
+        Encodes execution semantics as specified by modifier class.
+
+        @return axioms that specify execution semantics.
+        """
+        return self.modifier.do_mr_encode(variables=self.action_variables, mutexes=self.mutexes, bound=self.horizon)
+
+    def incremental(self, horizon=None):
+        last_horizon = self.horizon
+        if horizon is None:
+            self.horizon += 1
+        else:
+            assert horizon > self.horizon
+            self.horizon = horizon
+
+        self.createVariables()
+
+        self.formula['goal'] = self.encodeGoalState()
+
+        for step in range(last_horizon, self.horizon):
+            # pbc = [(var, 1) for var in self.action_variables[step].values()]
+            # self.formula['sem'].append(PbLe(pbc, 1))
+            for pair in self.mutexes:
+                self.formula['sem'].append(Or(Not(self.action_variables[step][pair[0].name]),
+                                              Not(self.action_variables[step][pair[1].name])))
 
         self.formula['frame'] += self.encodeFrame(last_horizon)
 

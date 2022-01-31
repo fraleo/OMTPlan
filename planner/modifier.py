@@ -54,6 +54,31 @@ class LinearModifier(Modifier):
 
         return c
 
+
+class MRLinearModifier(Modifier):
+    """
+    Linear modifier, contains method to implement sequential execution semantics.
+
+    """
+
+    def do_mr_encode(self, variables, mutexes, bound):
+        """!
+        Encodes multi-robots sequential execution semantics (i.e., one action per step).
+
+        @param  variables: Z3 variables.
+        @param mutexes: action mutexes.
+        @param bound: planning horizon.
+
+        @return c: constraints enforcing multi-robot sequential execution
+        """
+        c = []
+
+        for step in range(bound):
+            for pair in mutexes:
+                c.append(Or(Not(variables[step][pair[0].name]), Not(variables[step][pair[1].name])))
+
+        return c
+
 ##############################################################################################################
 # Python doesn't support overload function
 #################################################################################################################
