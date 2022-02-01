@@ -278,6 +278,26 @@ class MRPlan(Plan):
         # logger.info(f'naive general failure constraints')
         return [Implies(And(horizon_state), Not(And(failed_action_lst)))]
 
+    def informed_constraints(self, model, encoder, plan, failed_step, failure_info):
+        # first we still use general constraints
+        constraints = self.general_failure_constraints_naive(model, encoder, plan, failed_step)
+        # we then encode constraints in the failure info
+        mutexed_actions, never_actions, must_moved_movables = failure_info
+        min_step = 0
+        max_step = max(encoder.boolean_variables.keys())
+
+        horizon_state = []
+        horizon_action = []
+
+        for i in range(min_step, max_step):
+            # we first add mutexed actions constraints
+            for mutexed_action1, mutexed_action2 in mutexed_actions:
+                horizon_mutexed_action1 = encoder.action_variables[int(i)][mutexed_action1]
+                horizon_mutexed_action2 = encoder.action_variables[int(i)][mutexed_action2]
+                constraints.append(Implies(horizon_mutexed_action1, Not(horizon_mutexed_action2)))
+                constraints.append(Implies(horizon_mutexed_action2, Not(horizon_mutexed_action1)))
+
+
     def collision_generalization_constraints(self, objects, model, encoder, plan, failed_step):
         min_step = 0
         max_step = max(encoder.boolean_variables.keys())
