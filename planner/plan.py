@@ -284,6 +284,14 @@ class MRPlan(Plan):
         # we then encode constraints in the failure info
         pre_mutexed_actions, manip_mutexed_actions, pre_never_actions, manip_never_actions, \
         pre_must_moved_movables, manip_must_moved_movables = failure_info
+
+        encoder.pre_mutexed_actions.append(pre_mutexed_actions)
+        encoder.manip_mutexed_actions.append(manip_mutexed_actions)
+        encoder.pre_never_actions.append(pre_never_actions)
+        encoder.manip_never_actions.append(manip_never_actions)
+        encoder.pre_must_moved_movables.update(pre_must_moved_movables)
+        encoder.manip_must_moved_movables.update(manip_must_moved_movables)
+
         min_step = 0
         max_step = max(encoder.boolean_variables.keys())
 
@@ -311,7 +319,7 @@ class MRPlan(Plan):
                 pre_mutexed_action2_lst = []
 
                 for action in encoder.actions:
-                    action_args = action.strip()[1:-1].strip().split(' ')
+                    action_args = action.name.strip()[1:-1].strip().split(' ')
                     action_robot = action_args[1]
                     action_movable = action_args[2]
                     action_grasp = action_args[3]
@@ -326,8 +334,8 @@ class MRPlan(Plan):
 
                 for pre_mutexed_action1_same in pre_mutexed_action1_lst:
                     for pre_mutexed_action2_same in pre_mutexed_action2_lst:
-                        horizon_mutexed_action1_same = encoder.action_variables[int(i)][pre_mutexed_action1_same]
-                        horizon_mutexed_action2_same = encoder.action_variables[int(i)][pre_mutexed_action2_same]
+                        horizon_mutexed_action1_same = encoder.action_variables[int(i)][pre_mutexed_action1_same.name]
+                        horizon_mutexed_action2_same = encoder.action_variables[int(i)][pre_mutexed_action2_same.name]
                         constraints.append(Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
                         constraints.append(Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
 
@@ -350,7 +358,7 @@ class MRPlan(Plan):
                 manip_mutexed_action2_lst = [manip_mutexed_action2]
 
                 for action in encoder.actions:
-                    action_args = action.strip()[1:-1].strip().split(' ')
+                    action_args = action.name.strip()[1:-1].strip().split(' ')
                     action_robot = action_args[1]
                     action_movable = action_args[2]
                     action_grasp = action_args[3]
@@ -380,7 +388,7 @@ class MRPlan(Plan):
                 pre_never_action_pre_region = pre_never_action_args[4]
 
                 for action in encoder.actions:
-                    action_args = action.strip()[1:-1].strip().split(' ')
+                    action_args = action.name.strip()[1:-1].strip().split(' ')
                     action_robot = action_args[1]
                     action_movable = action_args[2]
                     action_grasp = action_args[3]
@@ -388,19 +396,19 @@ class MRPlan(Plan):
 
                     if action_robot == pre_never_action_robot and action_movable == pre_never_action_movable and \
                             action_grasp == pre_never_action_grasp and action_pre_region == pre_never_action_pre_region:
-                        horizon_never_action_same = encoder.action_variables[int(i)][action]
+                        horizon_never_action_same = encoder.action_variables[int(i)][action.name]
                         constraints.append(Not(horizon_never_action_same))
 
             for manip_never_action in manip_never_actions:
                 # first find all actions that have the same manip action with manip_never_action
-                manip_never_action_args = manip_never_action.strip()[1:-1].strip().split(' ')
+                manip_never_action_args = manip_never_action.name.strip()[1:-1].strip().split(' ')
                 manip_never_action_robot = manip_never_action_args[1]
                 manip_never_action_movable = manip_never_action_args[2]
                 manip_never_action_grasp = manip_never_action_args[3]
                 manip_never_action_manip_region = manip_never_action_args[5]
 
                 for action in encoder.actions:
-                    action_args = action.strip()[1:-1].strip().split(' ')
+                    action_args = action.name.strip()[1:-1].strip().split(' ')
                     action_robot = action_args[1]
                     action_movable = action_args[2]
                     action_grasp = action_args[3]
@@ -414,7 +422,42 @@ class MRPlan(Plan):
             # we then add motion collisions
             # we assume monotone setup
             # then for the action we want to perform, all the collisions should be moved
+            for action, must_move_movables in pre_must_moved_movables.items():
+                action_args = action.strip()[1:-1].strip().split(' ')
+                action_name, action_robot, action_movable, action_grasp, action_pre_region, action_after_region = action_args
 
+                # find all actions with the same pre-action (will share the same pre_constrains)
+                actions_same_pre = []
+                for action_candidate in encoder.actions:
+                    action_candidate_args = action_candidate.name.strip()[1:-1].strip().split(' ')
+                    action_candidate_name, action_candidate_robot, action_candidate_movable, action_candidate_grasp, action_candidate_pre_region, action_candidate_after_region = action_candidate_args
+
+                    if action_robot == action_candidate_robot and action_movable == action_candidate_movable and action_grasp == action_candidate_grasp and action_pre_region == action_candidate_pre_region:
+                        actions_same_pre.append(action_candidate.name)
+
+                for action_same_pre in actions_same_pre:
+                    constraint = Implies(encoder.action_variables[i][action_same_pre], And(*[encoder.boolean_variables[i]['moved_' + str(movable)] for movable in must_move_movables]))
+                    constraints.append(constraint)
+
+            # for manip
+            for action, must_move_movables in manip_must_moved_movables.items():
+                action_args = action.strip()[1:-1].strip().split(' ')
+                action_name, action_robot, action_movable, action_grasp, action_pre_region, action_after_region = action_args
+
+                # find all actions with the same pre-action (will share the same pre_constrains)
+                actions_same_after = []
+                for action_candidate in encoder.actions:
+                    action_candidate_args = action_candidate.name.strip()[1:-1].strip().split(' ')
+                    action_candidate_name, action_candidate_robot, action_candidate_movable, action_candidate_grasp, action_candidate_pre_region, action_candidate_after_region = action_candidate_args
+
+                    if action_robot == action_candidate_robot and action_movable == action_candidate_movable and action_grasp == action_candidate_grasp and action_after_region == action_candidate_after_region:
+                        actions_same_after.append(action_candidate.name)
+
+                for action_same_after in actions_same_after:
+                    constraint = Implies(encoder.action_variables[i][action_same_after], And(*[encoder.boolean_variables[i]['moved_' + str(movable)] for movable in must_move_movables]))
+                    constraints.append(constraint)
+
+        return constraints
 
     def collision_generalization_constraints(self, objects, model, encoder, plan, failed_step):
         min_step = 0
