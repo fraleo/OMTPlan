@@ -124,10 +124,20 @@ class Encoder():
             for a2 in self.actions:
                 if a1.name == a2.name:
                     continue
-                a1_cor_agent = a1.name.split(' ')[1]
-                a2_cor_agent = a2.name.split(' ')[1]
+                if 'handover' in a1.name:
+                    a1_cor_agents = a1.name.split(' ')[1:3]
+                elif 'pickandplace' in a1.name:
+                    a1_cor_agents = a1.name.split(' ')[1:2]
+                else:
+                    raise NotImplementedError("This action type {} is not supported".format(a1.name))
+                if 'handover' in a2.name:
+                    a2_cor_agents = a2.name.split(' ')[1:3]
+                elif 'pickandplace' in a2.name:
+                    a2_cor_agents = a2.name.split(' ')[1:2]
+                else:
+                    raise NotImplementedError("This action type {} is not supported".format(a2.name))
                 # Condition 1
-                if a1_cor_agent == a2_cor_agent:
+                if len(set(a1_cor_agents).intersection(set(a2_cor_agents))) > 0:
                     mutexes.append((a1, a2))
                     continue
 
@@ -773,6 +783,30 @@ class MREncoderSMT(Encoder):
         """
         return self.modifier.do_mr_encode(variables=self.action_variables, mutexes=self.mutexes, bound=self.horizon)
 
+    def process_action(self, action):
+        args = action.strip()[1:-1].strip().split(' ')
+        name = args[0]
+        if 'handover' in name:
+            pre_robot = args[1]
+            manip_robot = args[2]
+            movable = args[3]
+            pre_grasp = args[4]
+            manip_grasp = args[5]
+            pre_region = args[6]
+            manip_region = args[7]
+        elif 'pickandplace' in name:
+            pre_robot = args[1]
+            manip_robot = args[1]
+            movable = args[2]
+            pre_grasp = args[3]
+            manip_grasp = args[3]
+            pre_region = args[4]
+            manip_region = args[4]
+        else:
+            raise NotImplementedError("The action {} is not supported".format(name))
+
+        return (pre_robot, movable, pre_grasp, pre_region), (manip_robot, movable, manip_grasp, manip_region)
+
     def incremental(self, horizon=None):
         last_horizon = self.horizon
         if horizon is None:
@@ -800,167 +834,112 @@ class MREncoderSMT(Encoder):
         self.formula['step'] += self.encodeActionForStep(last_horizon)
 
         for i in range(last_horizon, self.horizon):
-            # TODO: BUG
             for pre_mutexed_action1, pre_mutexed_action2 in self.pre_mutexed_actions:
                 # we should find all actions that have the same pre action with pre_mutexed_action1
                 # and all actions that have the same pre action with pre_mutexed_action2
-                pre_mutexed_action1_args = pre_mutexed_action1.strip()[1:-1].strip().split(' ')
-                pre_mutexed_action1_robot = pre_mutexed_action1_args[1]
-                pre_mutexed_action1_movable = pre_mutexed_action1_args[2]
-                pre_mutexed_action1_grasp = pre_mutexed_action1_args[3]
-                pre_mutexed_action1_pre_region = pre_mutexed_action1_args[4]
-
-                pre_mutexed_action2_args = pre_mutexed_action2.strip()[1:-1].strip().split(' ')
-                pre_mutexed_action2_robot = pre_mutexed_action2_args[1]
-                pre_mutexed_action2_movable = pre_mutexed_action2_args[2]
-                pre_mutexed_action2_grasp = pre_mutexed_action2_args[3]
-                pre_mutexed_action2_pre_region = pre_mutexed_action2_args[4]
+                pre_info_m_a1, manip_info_m_a1 = self.process_action(pre_mutexed_action1)
+                pre_info_m_a2, manip_info_m_a2 = self.process_action(pre_mutexed_action2)
 
                 pre_mutexed_action1_lst = []
                 pre_mutexed_action2_lst = []
 
                 for action in self.actions:
-                    action_args = action.name.strip()[1:-1].strip().split(' ')
-                    action_robot = action_args[1]
-                    action_movable = action_args[2]
-                    action_grasp = action_args[3]
-                    action_pre_region = action_args[4]  # may not be necessary
+                    pre_info_a, manip_info_a = self.process_action(action.name)
 
-                    if action_robot == pre_mutexed_action1_robot and action_movable == pre_mutexed_action1_movable and \
-                            action_grasp == pre_mutexed_action1_grasp and action_pre_region == pre_mutexed_action1_pre_region:
-                        pre_mutexed_action1_lst.append(action)
-                    elif action_robot == pre_mutexed_action2_robot and action_movable == pre_mutexed_action2_movable and \
-                            action_grasp == pre_mutexed_action2_grasp and action_pre_region == pre_mutexed_action2_pre_region:
-                        pre_mutexed_action2_lst.append(action)
+                    if pre_info_a == pre_info_m_a1:
+                        pre_mutexed_action1_lst.append(action.name)
+                    elif pre_info_a == pre_info_m_a2:
+                        pre_mutexed_action2_lst.append(action.name)
 
                 for pre_mutexed_action1_same in pre_mutexed_action1_lst:
                     for pre_mutexed_action2_same in pre_mutexed_action2_lst:
-                        horizon_mutexed_action1_same = self.action_variables[int(i)][pre_mutexed_action1_same.name]
-                        horizon_mutexed_action2_same = self.action_variables[int(i)][pre_mutexed_action2_same.name]
-                        self.formula['action_must_moved'].append(Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
-                        self.formula['action_must_moved'].append(Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
+                        horizon_mutexed_action1_same = self.action_variables[int(i)][pre_mutexed_action1_same]
+                        horizon_mutexed_action2_same = self.action_variables[int(i)][pre_mutexed_action2_same]
+                        self.formula['action_must_moved'].append(
+                            Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
+                        self.formula['action_must_moved'].append(
+                            Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
 
             for manip_mutexed_action1, manip_mutexed_action2 in self.manip_mutexed_actions:
-                # we should find all actions that have the same manip action with manip_mutexed_action1
-                # and all actions that have the same manip action with manip_mutexed_action2
-                manip_mutexed_action1_args = manip_mutexed_action1.strip()[1:-1].strip().split(' ')
-                manip_mutexed_action1_robot = manip_mutexed_action1_args[1]
-                manip_mutexed_action1_movable = manip_mutexed_action1_args[2]
-                manip_mutexed_action1_grasp = manip_mutexed_action1_args[3]
-                manip_mutexed_action1_manip_region = manip_mutexed_action1_args[5]
+                # we should find all actions that have the same pre action with pre_mutexed_action1
+                # and all actions that have the same pre action with pre_mutexed_action2
+                pre_info_m_a1, manip_info_m_a1 = self.process_action(manip_mutexed_action1)
+                pre_info_m_a2, manip_info_m_a2 = self.process_action(manip_mutexed_action2)
 
-                manip_mutexed_action2_args = manip_mutexed_action2.strip()[1:-1].strip().split(' ')
-                manip_mutexed_action2_robot = manip_mutexed_action2_args[1]
-                manip_mutexed_action2_movable = manip_mutexed_action2_args[2]
-                manip_mutexed_action2_grasp = manip_mutexed_action2_args[3]
-                manip_mutexed_action2_manip_region = manip_mutexed_action2_args[5]
-
-                manip_mutexed_action1_lst = [manip_mutexed_action1]
-                manip_mutexed_action2_lst = [manip_mutexed_action2]
+                manip_mutexed_action1_lst = []
+                manip_mutexed_action2_lst = []
 
                 for action in self.actions:
-                    action_args = action.name.strip()[1:-1].strip().split(' ')
-                    action_robot = action_args[1]
-                    action_movable = action_args[2]
-                    action_grasp = action_args[3]
-                    action_manip_region = action_args[5]  # may not be necessary
+                    pre_info_a, manip_info_a = self.process_action(action.name)
 
-                    if action_robot == manip_mutexed_action1_robot and action_movable == manip_mutexed_action1_movable and \
-                            action_grasp == manip_mutexed_action1_grasp and action_manip_region == manip_mutexed_action1_manip_region:
-                        manip_mutexed_action1_lst.append(action)
-                    elif action_robot == manip_mutexed_action2_robot and action_movable == manip_mutexed_action2_movable and \
-                            action_grasp == manip_mutexed_action2_grasp and action_manip_region == manip_mutexed_action2_manip_region:
-                        manip_mutexed_action2_lst.append(action)
+                    if manip_info_a == manip_info_m_a1:
+                        manip_mutexed_action1_lst.append(action.name)
+                    elif manip_info_a == manip_info_m_a2:
+                        manip_mutexed_action2_lst.append(action.name)
 
                 for manip_mutexed_action1_same in manip_mutexed_action1_lst:
                     for manip_mutexed_action2_same in manip_mutexed_action2_lst:
-                        horizon_mutexed_action1_same = self.action_variables[int(i)][manip_mutexed_action1_same]
-                        horizon_mutexed_action2_same = self.action_variables[int(i)][manip_mutexed_action2_same]
-                        self.formula['action_must_moved'].append(Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
-                        self.formula['action_must_moved'].append(Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
+                        horizon_mutexed_action1_same = self.action_variables[int(i)][manip_mutexed_action1_same.name]
+                        horizon_mutexed_action2_same = self.action_variables[int(i)][manip_mutexed_action2_same.name]
+                        self.formula['action_must_moved'].append(
+                            Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
+                        self.formula['action_must_moved'].append(
+                            Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
 
             # we then add never actions
             for pre_never_action in self.pre_never_actions:
                 # first find all actions that have the same pre action with pre_never_action
-                pre_never_action_args = pre_never_action.strip()[1:-1].strip().split(' ')
-                pre_never_action_robot = pre_never_action_args[1]
-                pre_never_action_movable = pre_never_action_args[2]
-                pre_never_action_grasp = pre_never_action_args[3]
-                pre_never_action_pre_region = pre_never_action_args[4]
+                pre_info_n_a, manip_info_n_a = self.process_action(pre_never_action)
 
                 for action in self.actions:
-                    action_args = action.name.strip()[1:-1].strip().split(' ')
-                    action_robot = action_args[1]
-                    action_movable = action_args[2]
-                    action_grasp = action_args[3]
-                    action_pre_region = action_args[4]  # may not be necessary
+                    pre_info_a, _ = self.process_action(action.name)
 
-                    if action_robot == pre_never_action_robot and action_movable == pre_never_action_movable and \
-                            action_grasp == pre_never_action_grasp and action_pre_region == pre_never_action_pre_region:
+                    if pre_info_a == pre_info_n_a:
                         horizon_never_action_same = self.action_variables[int(i)][action.name]
                         self.formula['action_must_moved'].append(Not(horizon_never_action_same))
 
             for manip_never_action in self.manip_never_actions:
                 # first find all actions that have the same manip action with manip_never_action
-                manip_never_action_args = manip_never_action.name.strip()[1:-1].strip().split(' ')
-                manip_never_action_robot = manip_never_action_args[1]
-                manip_never_action_movable = manip_never_action_args[2]
-                manip_never_action_grasp = manip_never_action_args[3]
-                manip_never_action_manip_region = manip_never_action_args[5]
+                pre_info_n_a, manip_info_n_a = self.process_action(manip_never_action)
 
                 for action in self.actions:
-                    action_args = action.name.strip()[1:-1].strip().split(' ')
-                    action_robot = action_args[1]
-                    action_movable = action_args[2]
-                    action_grasp = action_args[3]
-                    action_manip_region = action_args[5]  # may not be necessary
+                    _, manip_info_a = self.process_action(action.name)
 
-                    if action_robot == manip_never_action_robot and action_movable == manip_never_action_movable and \
-                            action_grasp == manip_never_action_grasp and action_manip_region == manip_never_action_manip_region:
-                        horizon_never_action_same = self.action_variables[int(i)][action]
+                    if manip_info_a == manip_info_n_a:
+                        horizon_never_action_same = self.action_variables[int(i)][action.name]
                         self.formula['action_must_moved'].append(Not(horizon_never_action_same))
 
             for action, must_move_movables in self.pre_must_moved_movables.items():
-                action_args = action.strip()[1:-1].strip().split(' ')
-                action_name, action_robot, action_movable, action_grasp, action_pre_region, action_after_region = action_args
+                pre_info_mu_a, manip_info_mu_a = self.process_action(action)
 
                 # find all actions with the same pre-action (will share the same pre_constrains)
                 actions_same_pre = []
                 for action_candidate in self.actions:
-                    action_candidate_args = action_candidate.name.strip()[1:-1].strip().split(' ')
-                    action_candidate_name, action_candidate_robot, action_candidate_movable, action_candidate_grasp, action_candidate_pre_region, action_candidate_after_region = action_candidate_args
-
-                    if action_robot == action_candidate_robot and action_movable == action_candidate_movable and action_grasp == action_candidate_grasp and action_pre_region == action_candidate_pre_region:
+                    pre_info_ac, manip_info_ac = self.process_action(action_candidate.name)
+                    if pre_info_ac == pre_info_mu_a:
                         actions_same_pre.append(action_candidate.name)
 
                 for action_same_pre in actions_same_pre:
-                    constraint = z3.Implies(self.action_variables[i][action_same_pre],
-                                            z3.And(
-                                                *[self.boolean_variables[i]['moved_' + str(movable)] for movable
-                                                  in
-                                                  must_move_movables]))
+                    constraint = Implies(self.action_variables[i][action_same_pre],
+                                         And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
+                                              must_move_movables]))
                     self.formula['action_must_moved'].append(constraint)
 
             # for manip
             for action, must_move_movables in self.manip_must_moved_movables.items():
-                action_args = action.strip()[1:-1].strip().split(' ')
-                action_name, action_robot, action_movable, action_grasp, action_pre_region, action_after_region = action_args
+                pre_info_mu_a, manip_info_mu_a = self.process_action(action)
 
                 # find all actions with the same pre-action (will share the same pre_constrains)
                 actions_same_after = []
                 for action_candidate in self.actions:
-                    action_candidate_args = action_candidate.name.strip()[1:-1].strip().split(' ')
-                    action_candidate_name, action_candidate_robot, action_candidate_movable, action_candidate_grasp, action_candidate_pre_region, action_candidate_after_region = action_candidate_args
-
-                    if action_robot == action_candidate_robot and action_movable == action_candidate_movable and action_grasp == action_candidate_grasp and action_after_region == action_candidate_after_region:
+                    pre_info_ac, manip_info_ac = self.process_action(action_candidate.name)
+                    if pre_info_ac == pre_info_mu_a:
                         actions_same_after.append(action_candidate.name)
 
                 for action_same_after in actions_same_after:
-                    constraint = z3.Implies(self.action_variables[i][action_same_after],
-                                            z3.And(
-                                                *[self.boolean_variables[i]['moved_' + str(movable)] for movable
-                                                  in
-                                                  must_move_movables]))
+                    constraint = Implies(self.action_variables[i][action_same_after],
+                                         And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
+                                              must_move_movables]))
                     self.formula['action_must_moved'].append(constraint)
 
         return self.formula
