@@ -879,8 +879,8 @@ class MREncoderSMT(Encoder):
 
                 for manip_mutexed_action1_same in manip_mutexed_action1_lst:
                     for manip_mutexed_action2_same in manip_mutexed_action2_lst:
-                        horizon_mutexed_action1_same = self.action_variables[int(i)][manip_mutexed_action1_same.name]
-                        horizon_mutexed_action2_same = self.action_variables[int(i)][manip_mutexed_action2_same.name]
+                        horizon_mutexed_action1_same = self.action_variables[int(i)][manip_mutexed_action1_same]
+                        horizon_mutexed_action2_same = self.action_variables[int(i)][manip_mutexed_action2_same]
                         self.formula['action_must_moved'].append(
                             Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
                         self.formula['action_must_moved'].append(
