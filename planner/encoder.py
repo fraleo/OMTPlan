@@ -834,57 +834,57 @@ class MREncoderSMT(Encoder):
         self.formula['step'] += self.encodeActionForStep(last_horizon)
 
         for i in range(last_horizon, self.horizon):
-            for pre_mutexed_action1, pre_mutexed_action2 in self.pre_mutexed_actions:
-                # we should find all actions that have the same pre action with pre_mutexed_action1
-                # and all actions that have the same pre action with pre_mutexed_action2
-                pre_info_m_a1, manip_info_m_a1 = self.process_action(pre_mutexed_action1)
-                pre_info_m_a2, manip_info_m_a2 = self.process_action(pre_mutexed_action2)
-
-                pre_mutexed_action1_lst = []
-                pre_mutexed_action2_lst = []
-
-                for action in self.actions:
-                    pre_info_a, manip_info_a = self.process_action(action.name)
-
-                    if pre_info_a == pre_info_m_a1:
-                        pre_mutexed_action1_lst.append(action.name)
-                    elif pre_info_a == pre_info_m_a2:
-                        pre_mutexed_action2_lst.append(action.name)
-
-                for pre_mutexed_action1_same in pre_mutexed_action1_lst:
-                    for pre_mutexed_action2_same in pre_mutexed_action2_lst:
-                        horizon_mutexed_action1_same = self.action_variables[int(i)][pre_mutexed_action1_same]
-                        horizon_mutexed_action2_same = self.action_variables[int(i)][pre_mutexed_action2_same]
-                        self.formula['action_must_moved'].append(
-                            Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
-                        self.formula['action_must_moved'].append(
-                            Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
-
-            for manip_mutexed_action1, manip_mutexed_action2 in self.manip_mutexed_actions:
-                # we should find all actions that have the same pre action with pre_mutexed_action1
-                # and all actions that have the same pre action with pre_mutexed_action2
-                pre_info_m_a1, manip_info_m_a1 = self.process_action(manip_mutexed_action1)
-                pre_info_m_a2, manip_info_m_a2 = self.process_action(manip_mutexed_action2)
-
-                manip_mutexed_action1_lst = []
-                manip_mutexed_action2_lst = []
-
-                for action in self.actions:
-                    pre_info_a, manip_info_a = self.process_action(action.name)
-
-                    if manip_info_a == manip_info_m_a1:
-                        manip_mutexed_action1_lst.append(action.name)
-                    elif manip_info_a == manip_info_m_a2:
-                        manip_mutexed_action2_lst.append(action.name)
-
-                for manip_mutexed_action1_same in manip_mutexed_action1_lst:
-                    for manip_mutexed_action2_same in manip_mutexed_action2_lst:
-                        horizon_mutexed_action1_same = self.action_variables[int(i)][manip_mutexed_action1_same]
-                        horizon_mutexed_action2_same = self.action_variables[int(i)][manip_mutexed_action2_same]
-                        self.formula['action_must_moved'].append(
-                            Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
-                        self.formula['action_must_moved'].append(
-                            Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
+            # for pre_mutexed_action1, pre_mutexed_action2 in self.pre_mutexed_actions:
+            #     # we should find all actions that have the same pre action with pre_mutexed_action1
+            #     # and all actions that have the same pre action with pre_mutexed_action2
+            #     pre_info_m_a1, manip_info_m_a1 = self.process_action(pre_mutexed_action1)
+            #     pre_info_m_a2, manip_info_m_a2 = self.process_action(pre_mutexed_action2)
+            #
+            #     pre_mutexed_action1_lst = []
+            #     pre_mutexed_action2_lst = []
+            #
+            #     for action in self.actions:
+            #         pre_info_a, manip_info_a = self.process_action(action.name)
+            #
+            #         if pre_info_a == pre_info_m_a1:
+            #             pre_mutexed_action1_lst.append(action.name)
+            #         elif pre_info_a == pre_info_m_a2:
+            #             pre_mutexed_action2_lst.append(action.name)
+            #
+            #     for pre_mutexed_action1_same in pre_mutexed_action1_lst:
+            #         for pre_mutexed_action2_same in pre_mutexed_action2_lst:
+            #             horizon_mutexed_action1_same = self.action_variables[int(i)][pre_mutexed_action1_same]
+            #             horizon_mutexed_action2_same = self.action_variables[int(i)][pre_mutexed_action2_same]
+            #             self.formula['action_must_moved'].append(
+            #                 Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
+            #             self.formula['action_must_moved'].append(
+            #                 Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
+            #
+            # for manip_mutexed_action1, manip_mutexed_action2 in self.manip_mutexed_actions:
+            #     # we should find all actions that have the same pre action with pre_mutexed_action1
+            #     # and all actions that have the same pre action with pre_mutexed_action2
+            #     pre_info_m_a1, manip_info_m_a1 = self.process_action(manip_mutexed_action1)
+            #     pre_info_m_a2, manip_info_m_a2 = self.process_action(manip_mutexed_action2)
+            #
+            #     manip_mutexed_action1_lst = []
+            #     manip_mutexed_action2_lst = []
+            #
+            #     for action in self.actions:
+            #         pre_info_a, manip_info_a = self.process_action(action.name)
+            #
+            #         if manip_info_a == manip_info_m_a1:
+            #             manip_mutexed_action1_lst.append(action.name)
+            #         elif manip_info_a == manip_info_m_a2:
+            #             manip_mutexed_action2_lst.append(action.name)
+            #
+            #     for manip_mutexed_action1_same in manip_mutexed_action1_lst:
+            #         for manip_mutexed_action2_same in manip_mutexed_action2_lst:
+            #             horizon_mutexed_action1_same = self.action_variables[int(i)][manip_mutexed_action1_same]
+            #             horizon_mutexed_action2_same = self.action_variables[int(i)][manip_mutexed_action2_same]
+            #             self.formula['action_must_moved'].append(
+            #                 Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
+            #             self.formula['action_must_moved'].append(
+            #                 Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
 
             # we then add never actions
             for pre_never_action in self.pre_never_actions:
