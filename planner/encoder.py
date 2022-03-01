@@ -926,21 +926,21 @@ class MREncoderSMT(Encoder):
                     self.formula['action_must_moved'].append(constraint)
 
             # for manip
-            for action, must_move_movables in self.manip_must_moved_movables.items():
-                pre_info_mu_a, manip_info_mu_a = self.process_action(action)
-
-                # find all actions with the same pre-action (will share the same pre_constrains)
-                actions_same_after = []
-                for action_candidate in self.actions:
-                    pre_info_ac, manip_info_ac = self.process_action(action_candidate.name)
-                    if pre_info_ac == pre_info_mu_a:
-                        actions_same_after.append(action_candidate.name)
-
-                for action_same_after in actions_same_after:
-                    constraint = Implies(self.action_variables[i][action_same_after],
-                                         And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
-                                              must_move_movables]))
-                    self.formula['action_must_moved'].append(constraint)
+            # for action, must_move_movables in self.manip_must_moved_movables.items():
+            #     pre_info_mu_a, manip_info_mu_a = self.process_action(action)
+            #
+            #     # find all actions with the same pre-action (will share the same pre_constrains)
+            #     actions_same_after = []
+            #     for action_candidate in self.actions:
+            #         pre_info_ac, manip_info_ac = self.process_action(action_candidate.name)
+            #         if pre_info_ac == pre_info_mu_a:
+            #             actions_same_after.append(action_candidate.name)
+            #
+            #     for action_same_after in actions_same_after:
+            #         constraint = Implies(self.action_variables[i][action_same_after],
+            #                              And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
+            #                                   must_move_movables]))
+            #         self.formula['action_must_moved'].append(constraint)
 
         return self.formula
 
