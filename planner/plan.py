@@ -448,7 +448,7 @@ class MRPlan(Plan):
                                               must_move_movables]))
                     constraints.append(constraint)
 
-            for pre_mr_action, pre_mr_action_must_moved_movables in pre_mr_action_must_moved_movables.items():
+            for pre_mr_action, pre_mr_action_must_moved_movable_lst in pre_mr_action_must_moved_movables.items():
                 if len(pre_mr_action) == 1:
                     involved_sr_action = pre_mr_action[0]
 
@@ -464,7 +464,7 @@ class MRPlan(Plan):
                     for action_same_pre in actions_same_pre:
                         constraint = Implies(encoder.action_variables[i][action_same_pre],
                                              And([encoder.boolean_variables[i]['moved_' + str(movable)] for movable in
-                                                  pre_mr_action_must_moved_movables]))
+                                                  pre_mr_action_must_moved_movable_lst]))
                         constraints.append(constraint)
 
                 elif len(pre_mr_action) == 2:
@@ -491,11 +491,11 @@ class MRPlan(Plan):
                             constraints.append(Implies(And(horizon_action1_same, horizon_action2_same),
                                                        And([encoder.boolean_variables[i]['moved_' + str(movable)] for
                                                             movable in
-                                                            pre_mr_action_must_moved_movables])))
+                                                            pre_mr_action_must_moved_movable_lst])))
                 else:
                     raise NotImplementedError()
 
-            for manip_mr_action, manip_mr_action_must_moved_movables in manip_mr_action_must_moved_movables.items():
+            for manip_mr_action, manip_mr_action_must_moved_movable_lst in manip_mr_action_must_moved_movables.items():
                 if len(manip_mr_action) == 1:
                     involved_sr_action = manip_mr_action[0]
 
@@ -505,13 +505,13 @@ class MRPlan(Plan):
                     actions_same_manip = []
                     for action_candidate in encoder.actions:
                         _, manip_info_ac = self.process_action(action_candidate.name)
-                        if manip_info_ac == manip_info_mu_a:
+                        if manip_info_ac[:2] == manip_info_mu_a[:2]:
                             actions_same_manip.append(action_candidate.name)
 
                     for action_same_manip in actions_same_manip:
                         constraint = Implies(encoder.action_variables[i][action_same_manip],
                                              And([encoder.boolean_variables[i]['moved_' + str(movable)] for movable in
-                                                  manip_mr_action_must_moved_movables]))
+                                                  manip_mr_action_must_moved_movable_lst]))
                         constraints.append(constraint)
                 elif len(manip_mr_action) == 2:
                     involved_sr_action1 = manip_mr_action[0]
@@ -525,9 +525,9 @@ class MRPlan(Plan):
                     for action in encoder.actions:
                         _, manip_info_a = self.process_action(action.name)
 
-                        if manip_info_a == manip_info_m_a1:
+                        if manip_info_a[:2] == manip_info_m_a1[:2]:
                             manip_action1_lst.append(action.name)
-                        elif manip_info_a == manip_info_m_a2:
+                        elif manip_info_a[:2] == manip_info_m_a2[:2]:
                             manip_action2_lst.append(action.name)
 
                     for manip_action1_same in manip_action1_lst:
@@ -537,7 +537,7 @@ class MRPlan(Plan):
                             constraints.append(Implies(And(horizon_action1_same, horizon_action2_same),
                                                        And([encoder.boolean_variables[i]['moved_' + str(movable)] for
                                                             movable in
-                                                            manip_mr_action_must_moved_movables])))
+                                                            manip_mr_action_must_moved_movable_lst])))
                 else:
                     raise NotImplementedError()
 

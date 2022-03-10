@@ -1021,7 +1021,7 @@ class MREncoderSMT(Encoder):
                     actions_same_manip = []
                     for action_candidate in self.actions:
                         _, manip_info_ac = self.process_action(action_candidate.name)
-                        if manip_info_ac == manip_info_mu_a:
+                        if manip_info_ac[:2] == manip_info_mu_a[:2]:
                             actions_same_manip.append(action_candidate.name)
 
                     for action_same_manip in actions_same_manip:
@@ -1041,9 +1041,9 @@ class MREncoderSMT(Encoder):
                     for action in self.actions:
                         _, manip_info_a = self.process_action(action.name)
 
-                        if manip_info_a == manip_info_m_a1:
+                        if manip_info_a[:2] == manip_info_m_a1[:2]:
                             manip_action1_lst.append(action.name)
-                        elif manip_info_a == manip_info_m_a2:
+                        elif manip_info_a[:2] == manip_info_m_a2[:2]:
                             manip_action2_lst.append(action.name)
 
                     for manip_action1_same in manip_action1_lst:
