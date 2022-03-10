@@ -345,30 +345,6 @@ class MRPlan(Plan):
                         constraints.append(Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
                         constraints.append(Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
 
-            # for manip_mutexed_action1, manip_mutexed_action2 in manip_mutexed_actions:
-            #     # we should find all actions that have the same pre action with pre_mutexed_action1
-            #     # and all actions that have the same pre action with pre_mutexed_action2
-            #     pre_info_m_a1, manip_info_m_a1 = self.process_action(manip_mutexed_action1)
-            #     pre_info_m_a2, manip_info_m_a2 = self.process_action(manip_mutexed_action2)
-            #
-            #     manip_mutexed_action1_lst = []
-            #     manip_mutexed_action2_lst = []
-            #
-            #     for action in encoder.actions:
-            #         pre_info_a, manip_info_a = self.process_action(action.name)
-            #
-            #         if manip_info_a == manip_info_m_a1:
-            #             manip_mutexed_action1_lst.append(action.name)
-            #         elif manip_info_a == manip_info_m_a2:
-            #             manip_mutexed_action2_lst.append(action.name)
-            #
-            #     for manip_mutexed_action1_same in manip_mutexed_action1_lst:
-            #         for manip_mutexed_action2_same in manip_mutexed_action2_lst:
-            #             horizon_mutexed_action1_same = encoder.action_variables[int(i)][manip_mutexed_action1_same]
-            #             horizon_mutexed_action2_same = encoder.action_variables[int(i)][manip_mutexed_action2_same]
-            #             constraints.append(Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
-            #             constraints.append(Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
-
             # we then add never actions
             for pre_never_action in pre_never_actions:
                 # first find all actions that have the same pre action with pre_never_action
