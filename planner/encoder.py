@@ -887,47 +887,47 @@ class MREncoderSMT(Encoder):
                         horizon_never_action_same = self.action_variables[int(i)][action.name]
                         self.formula['action_must_moved'].append(Not(horizon_never_action_same))
 
-                        # we then add never mr actions
-                        for pre_never_mr_action in self.pre_never_mr_actions:
-                            if len(pre_never_mr_action) == 1:
-                                involved_sr_action = pre_never_mr_action[0]
-                                pre_info_n_a, _ = self.process_action(involved_sr_action)
-                                for action in self.actions:
-                                    pre_info_a, _ = self.process_action(action.name)
+            # we then add never mr actions
+            for pre_never_mr_action in self.pre_never_mr_actions:
+                if len(pre_never_mr_action) == 1:
+                    involved_sr_action = pre_never_mr_action[0]
+                    pre_info_n_a, _ = self.process_action(involved_sr_action)
+                    for action in self.actions:
+                        pre_info_a, _ = self.process_action(action.name)
 
-                                    if pre_info_a == pre_info_n_a:
-                                        horizon_never_action_same = self.action_variables[int(i)][action.name]
-                                        self.formula['action_must_moved'].append(Not(horizon_never_action_same))
-                            elif len(pre_never_mr_action) == 2:
-                                pre_mutexed_action1 = pre_never_mr_action[0]
-                                pre_mutexed_action2 = pre_never_mr_action[1]
+                        if pre_info_a == pre_info_n_a:
+                            horizon_never_action_same = self.action_variables[int(i)][action.name]
+                            self.formula['action_must_moved'].append(Not(horizon_never_action_same))
+                elif len(pre_never_mr_action) == 2:
+                    pre_mutexed_action1 = pre_never_mr_action[0]
+                    pre_mutexed_action2 = pre_never_mr_action[1]
 
-                                pre_info_m_a1, manip_info_m_a1 = self.process_action(pre_mutexed_action1)
-                                pre_info_m_a2, manip_info_m_a2 = self.process_action(pre_mutexed_action2)
+                    pre_info_m_a1, manip_info_m_a1 = self.process_action(pre_mutexed_action1)
+                    pre_info_m_a2, manip_info_m_a2 = self.process_action(pre_mutexed_action2)
 
-                                pre_mutexed_action1_lst = []
-                                pre_mutexed_action2_lst = []
+                    pre_mutexed_action1_lst = []
+                    pre_mutexed_action2_lst = []
 
-                                for action in self.actions:
-                                    pre_info_a, manip_info_a = self.process_action(action.name)
+                    for action in self.actions:
+                        pre_info_a, manip_info_a = self.process_action(action.name)
 
-                                    if pre_info_a == pre_info_m_a1:
-                                        pre_mutexed_action1_lst.append(action.name)
-                                    elif pre_info_a == pre_info_m_a2:
-                                        pre_mutexed_action2_lst.append(action.name)
+                        if pre_info_a == pre_info_m_a1:
+                            pre_mutexed_action1_lst.append(action.name)
+                        elif pre_info_a == pre_info_m_a2:
+                            pre_mutexed_action2_lst.append(action.name)
 
-                                for pre_mutexed_action1_same in pre_mutexed_action1_lst:
-                                    for pre_mutexed_action2_same in pre_mutexed_action2_lst:
-                                        horizon_mutexed_action1_same = self.action_variables[int(i)][
-                                            pre_mutexed_action1_same]
-                                        horizon_mutexed_action2_same = self.action_variables[int(i)][
-                                            pre_mutexed_action2_same]
-                                        self.formula['action_must_moved'].append(
-                                            Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
-                                        self.formula['action_must_moved'].append(
-                                            Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
-                            else:
-                                raise NotImplementedError("We only support 2 robots for this baseline.")
+                    for pre_mutexed_action1_same in pre_mutexed_action1_lst:
+                        for pre_mutexed_action2_same in pre_mutexed_action2_lst:
+                            horizon_mutexed_action1_same = self.action_variables[int(i)][
+                                pre_mutexed_action1_same]
+                            horizon_mutexed_action2_same = self.action_variables[int(i)][
+                                pre_mutexed_action2_same]
+                            self.formula['action_must_moved'].append(
+                                Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
+                            self.formula['action_must_moved'].append(
+                                Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
+                else:
+                    raise NotImplementedError("We only support 2 robots for this baseline.")
 
             for action, must_move_movables in self.pre_must_moved_movables.items():
                 pre_info_mu_a, manip_info_mu_a = self.process_action(action)
@@ -946,21 +946,21 @@ class MREncoderSMT(Encoder):
                     self.formula['action_must_moved'].append(constraint)
 
             # for manip
-            for action, must_move_movables in self.manip_must_moved_movables.items():
-                _, manip_info_mu_a = self.process_action(action)
-
-                # find all actions with the same pre-action (will share the same pre_constrains)
-                actions_same_after = []
-                for action_candidate in self.actions:
-                    _, manip_info_ac = self.process_action(action_candidate.name)
-                    if manip_info_ac == manip_info_mu_a:
-                        actions_same_after.append(action_candidate.name)
-
-                for action_same_after in actions_same_after:
-                    constraint = Implies(self.action_variables[i][action_same_after],
-                                         And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
-                                              must_move_movables]))
-                    self.formula['action_must_moved'].append(constraint)
+            # for action, must_move_movables in self.manip_must_moved_movables.items():
+            #     _, manip_info_mu_a = self.process_action(action)
+            #
+            #     # find all actions with the same pre-action (will share the same pre_constrains)
+            #     actions_same_after = []
+            #     for action_candidate in self.actions:
+            #         _, manip_info_ac = self.process_action(action_candidate.name)
+            #         if manip_info_ac == manip_info_mu_a:
+            #             actions_same_after.append(action_candidate.name)
+            #
+            #     for action_same_after in actions_same_after:
+            #         constraint = Implies(self.action_variables[i][action_same_after],
+            #                              And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
+            #                                   must_move_movables]))
+            #         self.formula['action_must_moved'].append(constraint)
 
             for pre_mr_action, pre_mr_action_must_moved_movables in self.pre_mr_action_must_moved_movables.items():
                 if len(pre_mr_action) == 1:
@@ -1011,52 +1011,52 @@ class MREncoderSMT(Encoder):
                 else:
                     raise NotImplementedError()
 
-            for manip_mr_action, manip_mr_action_must_moved_movables in self.manip_mr_action_must_moved_movables.items():
-                if len(manip_mr_action) == 1:
-                    involved_sr_action = manip_mr_action[0]
-
-                    _, manip_info_mu_a = self.process_action(involved_sr_action)
-
-                    # find all actions with the same pre-action (will share the same pre_constrains)
-                    actions_same_manip = []
-                    for action_candidate in self.actions:
-                        _, manip_info_ac = self.process_action(action_candidate.name)
-                        if manip_info_ac[:2] == manip_info_mu_a[:2]:
-                            actions_same_manip.append(action_candidate.name)
-
-                    for action_same_manip in actions_same_manip:
-                        constraint = Implies(self.action_variables[i][action_same_manip],
-                                             And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
-                                                  manip_mr_action_must_moved_movables]))
-                        self.formula['action_must_moved'].append(constraint)
-                elif len(manip_mr_action) == 2:
-                    involved_sr_action1 = manip_mr_action[0]
-                    involved_sr_action2 = manip_mr_action[1]
-                    _, manip_info_m_a1 = self.process_action(involved_sr_action1)
-                    _, manip_info_m_a2 = self.process_action(involved_sr_action2)
-
-                    manip_action1_lst = []
-                    manip_action2_lst = []
-
-                    for action in self.actions:
-                        _, manip_info_a = self.process_action(action.name)
-
-                        if manip_info_a[:2] == manip_info_m_a1[:2]:
-                            manip_action1_lst.append(action.name)
-                        elif manip_info_a[:2] == manip_info_m_a2[:2]:
-                            manip_action2_lst.append(action.name)
-
-                    for manip_action1_same in manip_action1_lst:
-                        for manip_action2_same in manip_action2_lst:
-                            horizon_action1_same = self.action_variables[int(i)][manip_action1_same]
-                            horizon_action2_same = self.action_variables[int(i)][manip_action2_same]
-                            self.formula['action_must_moved'].append(
-                                Implies(And(horizon_action1_same, horizon_action2_same),
-                                        And([self.boolean_variables[i]['moved_' + str(movable)] for
-                                             movable in
-                                             manip_mr_action_must_moved_movables])))
-                else:
-                    raise NotImplementedError()
+            # for manip_mr_action, manip_mr_action_must_moved_movables in self.manip_mr_action_must_moved_movables.items():
+            #     if len(manip_mr_action) == 1:
+            #         involved_sr_action = manip_mr_action[0]
+            #
+            #         _, manip_info_mu_a = self.process_action(involved_sr_action)
+            #
+            #         # find all actions with the same pre-action (will share the same pre_constrains)
+            #         actions_same_manip = []
+            #         for action_candidate in self.actions:
+            #             _, manip_info_ac = self.process_action(action_candidate.name)
+            #             if manip_info_ac[:2] == manip_info_mu_a[:2]:
+            #                 actions_same_manip.append(action_candidate.name)
+            #
+            #         for action_same_manip in actions_same_manip:
+            #             constraint = Implies(self.action_variables[i][action_same_manip],
+            #                                  And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
+            #                                       manip_mr_action_must_moved_movables]))
+            #             self.formula['action_must_moved'].append(constraint)
+            #     elif len(manip_mr_action) == 2:
+            #         involved_sr_action1 = manip_mr_action[0]
+            #         involved_sr_action2 = manip_mr_action[1]
+            #         _, manip_info_m_a1 = self.process_action(involved_sr_action1)
+            #         _, manip_info_m_a2 = self.process_action(involved_sr_action2)
+            #
+            #         manip_action1_lst = []
+            #         manip_action2_lst = []
+            #
+            #         for action in self.actions:
+            #             _, manip_info_a = self.process_action(action.name)
+            #
+            #             if manip_info_a[:2] == manip_info_m_a1[:2]:
+            #                 manip_action1_lst.append(action.name)
+            #             elif manip_info_a[:2] == manip_info_m_a2[:2]:
+            #                 manip_action2_lst.append(action.name)
+            #
+            #         for manip_action1_same in manip_action1_lst:
+            #             for manip_action2_same in manip_action2_lst:
+            #                 horizon_action1_same = self.action_variables[int(i)][manip_action1_same]
+            #                 horizon_action2_same = self.action_variables[int(i)][manip_action2_same]
+            #                 self.formula['action_must_moved'].append(
+            #                     Implies(And(horizon_action1_same, horizon_action2_same),
+            #                             And([self.boolean_variables[i]['moved_' + str(movable)] for
+            #                                  movable in
+            #                                  manip_mr_action_must_moved_movables])))
+            #     else:
+            #         raise NotImplementedError()
 
         return self.formula
 

@@ -432,21 +432,21 @@ class MRPlan(Plan):
                     constraints.append(constraint)
 
             # for manip
-            for action, must_move_movables in manip_must_moved_movables.items():
-                _, manip_info_mu_a = self.process_action(action)
-
-                # find all actions with the same pre-action (will share the same pre_constrains)
-                actions_same_after = []
-                for action_candidate in encoder.actions:
-                    _, manip_info_ac = self.process_action(action_candidate.name)
-                    if manip_info_ac == manip_info_mu_a:
-                        actions_same_after.append(action_candidate.name)
-
-                for action_same_after in actions_same_after:
-                    constraint = Implies(encoder.action_variables[i][action_same_after],
-                                         And([encoder.boolean_variables[i]['moved_' + str(movable)] for movable in
-                                              must_move_movables]))
-                    constraints.append(constraint)
+            # for action, must_move_movables in manip_must_moved_movables.items():
+            #     _, manip_info_mu_a = self.process_action(action)
+            #
+            #     # find all actions with the same pre-action (will share the same pre_constrains)
+            #     actions_same_after = []
+            #     for action_candidate in encoder.actions:
+            #         _, manip_info_ac = self.process_action(action_candidate.name)
+            #         if manip_info_ac == manip_info_mu_a:
+            #             actions_same_after.append(action_candidate.name)
+            #
+            #     for action_same_after in actions_same_after:
+            #         constraint = Implies(encoder.action_variables[i][action_same_after],
+            #                              And([encoder.boolean_variables[i]['moved_' + str(movable)] for movable in
+            #                                   must_move_movables]))
+            #         constraints.append(constraint)
 
             for pre_mr_action, pre_mr_action_must_moved_movable_lst in pre_mr_action_must_moved_movables.items():
                 if len(pre_mr_action) == 1:
@@ -495,51 +495,51 @@ class MRPlan(Plan):
                 else:
                     raise NotImplementedError()
 
-            for manip_mr_action, manip_mr_action_must_moved_movable_lst in manip_mr_action_must_moved_movables.items():
-                if len(manip_mr_action) == 1:
-                    involved_sr_action = manip_mr_action[0]
-
-                    _, manip_info_mu_a = self.process_action(involved_sr_action)
-
-                    # find all actions with the same pre-action (will share the same pre_constrains)
-                    actions_same_manip = []
-                    for action_candidate in encoder.actions:
-                        _, manip_info_ac = self.process_action(action_candidate.name)
-                        if manip_info_ac[:2] == manip_info_mu_a[:2]:
-                            actions_same_manip.append(action_candidate.name)
-
-                    for action_same_manip in actions_same_manip:
-                        constraint = Implies(encoder.action_variables[i][action_same_manip],
-                                             And([encoder.boolean_variables[i]['moved_' + str(movable)] for movable in
-                                                  manip_mr_action_must_moved_movable_lst]))
-                        constraints.append(constraint)
-                elif len(manip_mr_action) == 2:
-                    involved_sr_action1 = manip_mr_action[0]
-                    involved_sr_action2 = manip_mr_action[1]
-                    _, manip_info_m_a1 = self.process_action(involved_sr_action1)
-                    _, manip_info_m_a2 = self.process_action(involved_sr_action2)
-
-                    manip_action1_lst = []
-                    manip_action2_lst = []
-
-                    for action in encoder.actions:
-                        _, manip_info_a = self.process_action(action.name)
-
-                        if manip_info_a[:2] == manip_info_m_a1[:2]:
-                            manip_action1_lst.append(action.name)
-                        elif manip_info_a[:2] == manip_info_m_a2[:2]:
-                            manip_action2_lst.append(action.name)
-
-                    for manip_action1_same in manip_action1_lst:
-                        for manip_action2_same in manip_action2_lst:
-                            horizon_action1_same = encoder.action_variables[int(i)][manip_action1_same]
-                            horizon_action2_same = encoder.action_variables[int(i)][manip_action2_same]
-                            constraints.append(Implies(And(horizon_action1_same, horizon_action2_same),
-                                                       And([encoder.boolean_variables[i]['moved_' + str(movable)] for
-                                                            movable in
-                                                            manip_mr_action_must_moved_movable_lst])))
-                else:
-                    raise NotImplementedError()
+            # for manip_mr_action, manip_mr_action_must_moved_movable_lst in manip_mr_action_must_moved_movables.items():
+            #     if len(manip_mr_action) == 1:
+            #         involved_sr_action = manip_mr_action[0]
+            #
+            #         _, manip_info_mu_a = self.process_action(involved_sr_action)
+            #
+            #         # find all actions with the same pre-action (will share the same pre_constrains)
+            #         actions_same_manip = []
+            #         for action_candidate in encoder.actions:
+            #             _, manip_info_ac = self.process_action(action_candidate.name)
+            #             if manip_info_ac[:2] == manip_info_mu_a[:2]:
+            #                 actions_same_manip.append(action_candidate.name)
+            #
+            #         for action_same_manip in actions_same_manip:
+            #             constraint = Implies(encoder.action_variables[i][action_same_manip],
+            #                                  And([encoder.boolean_variables[i]['moved_' + str(movable)] for movable in
+            #                                       manip_mr_action_must_moved_movable_lst]))
+            #             constraints.append(constraint)
+            #     elif len(manip_mr_action) == 2:
+            #         involved_sr_action1 = manip_mr_action[0]
+            #         involved_sr_action2 = manip_mr_action[1]
+            #         _, manip_info_m_a1 = self.process_action(involved_sr_action1)
+            #         _, manip_info_m_a2 = self.process_action(involved_sr_action2)
+            #
+            #         manip_action1_lst = []
+            #         manip_action2_lst = []
+            #
+            #         for action in encoder.actions:
+            #             _, manip_info_a = self.process_action(action.name)
+            #
+            #             if manip_info_a[:2] == manip_info_m_a1[:2]:
+            #                 manip_action1_lst.append(action.name)
+            #             elif manip_info_a[:2] == manip_info_m_a2[:2]:
+            #                 manip_action2_lst.append(action.name)
+            #
+            #         for manip_action1_same in manip_action1_lst:
+            #             for manip_action2_same in manip_action2_lst:
+            #                 horizon_action1_same = encoder.action_variables[int(i)][manip_action1_same]
+            #                 horizon_action2_same = encoder.action_variables[int(i)][manip_action2_same]
+            #                 constraints.append(Implies(And(horizon_action1_same, horizon_action2_same),
+            #                                            And([encoder.boolean_variables[i]['moved_' + str(movable)] for
+            #                                                 movable in
+            #                                                 manip_mr_action_must_moved_movable_lst])))
+            #     else:
+            #         raise NotImplementedError()
 
         return constraints
 
