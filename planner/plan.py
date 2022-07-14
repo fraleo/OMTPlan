@@ -304,7 +304,8 @@ class MRPlan(Plan):
 
     def informed_constraints(self, model, encoder, plan, failed_step, failure_info):
         # first we still use general constraints
-        constraints = self.general_failure_constraints_naive(model, encoder, plan, failed_step)
+        # constraints = self.general_failure_constraints_naive(model, encoder, plan, failed_step)
+        constraints = []
         # we then encode constraints in the failure info
         pre_mutexed_action_pairs, manip_mutexed_action_pairs, pre_never_actions, manip_never_actions, \
         pre_never_mr_actions, manip_never_mr_actions, pre_must_moved_movables, manip_must_moved_movables, \
