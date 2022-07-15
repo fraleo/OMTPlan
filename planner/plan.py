@@ -278,6 +278,20 @@ class MRPlan(Plan):
         # logger.info(f'naive general failure constraints')
         return [Implies(And(horizon_state), Not(And(failed_action_lst)))]
 
+    def task_plan_eliminate_constraints(self, model, encoder, plan, failed_step):
+        """
+        Add a constraint to eliminate the current plan.
+        """
+        each_step_action_selection = []
+        for step in range(encoder.horizon):
+            for current_step_action_var in encoder.action_variables[step].values():
+                if model[current_step_action_var]:
+                    each_step_action_selection.append(current_step_action_var)
+                else:
+                    each_step_action_selection.append(Not(current_step_action_var))
+
+        return [Not(And(each_step_action_selection))]
+
     def process_action(self, action):
         args = action.strip()[1:-1].strip().split(' ')
         name = args[0]
