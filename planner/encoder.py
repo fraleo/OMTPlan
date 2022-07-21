@@ -22,8 +22,7 @@ import utils
 from translate import instantiate
 from translate import numeric_axiom_rules
 import numpy as np
-import loopformula
-
+import planner.loopformula as loopformula
 
 
 class Encoder():
@@ -48,6 +47,8 @@ class Encoder():
 
         if self.modifier.__class__.__name__ == "LinearModifier":
             self.mutexes = self._computeSerialMutexes()
+        elif self.modifier.__class__.__name__ == 'MRLinearModifier':
+            self.mutexes = self._computeMRSerialMutexes()
         else:
             self.mutexes = self._computeParallelMutexes()
 
@@ -57,8 +58,8 @@ class Encoder():
         """
 
         (relaxed_reachable, boolean_fluents, numeric_fluents, actions,
-        durative_actions, axioms, numeric_axioms,
-        reachable_action_params) = instantiate.explore(self.task)
+         durative_actions, axioms, numeric_axioms,
+         reachable_action_params) = instantiate.explore(self.task)
 
         return boolean_fluents, actions, numeric_fluents, axioms, numeric_axioms
 
@@ -82,10 +83,9 @@ class Encoder():
             for part in nax.parts:
                 depends_on[nax].append(part)
 
-        axioms_by_layer, _,_,_ = numeric_axiom_rules.handle_axioms(self.numeric_axioms)
+        axioms_by_layer, _, _, _ = numeric_axiom_rules.handle_axioms(self.numeric_axioms)
 
         return axioms_by_name, depends_on, axioms_by_layer
-
 
     def _computeSerialMutexes(self):
         """!
@@ -101,9 +101,74 @@ class Encoder():
             for a2 in self.actions:
                 # Skip same action
                 if not a1.name == a2.name:
-                            mutexes.append((a1,a2))
+                    mutexes.append((a1, a2))
 
-        mutexes = set(tuple(sorted(t)) for t in mutexes)
+        mutexes = set(tuple(sorted(t, key=lambda a: a.__hash__())) for t in mutexes)
+
+        return mutexes
+
+    def _computeMRSerialMutexes(self):
+        """
+        Multiple robots can perform actions at the same step.
+
+        (1) If the actions correspond to different robots, then they must be mutually excluded.
+
+        (2) intersection pre_a1 and eff_a2 (or viceversa) is non-empty
+
+        (3) intersection between eff_a1+ and eff_a2- (or viceversa) is non-empty
+        """
+        # stores mutexes
+        mutexes = []
+
+        for a1 in self.actions:
+            for a2 in self.actions:
+                if a1.name == a2.name:
+                    continue
+                if 'handover' in a1.name:
+                    a1_cor_agents = a1.name.split(' ')[1:3]
+                elif 'pickandplace' in a1.name:
+                    a1_cor_agents = a1.name.split(' ')[1:2]
+                else:
+                    raise NotImplementedError("This action type {} is not supported".format(a1.name))
+                if 'handover' in a2.name:
+                    a2_cor_agents = a2.name.split(' ')[1:3]
+                elif 'pickandplace' in a2.name:
+                    a2_cor_agents = a2.name.split(' ')[1:2]
+                else:
+                    raise NotImplementedError("This action type {} is not supported".format(a2.name))
+                # Condition 1
+                if len(set(a1_cor_agents).intersection(set(a2_cor_agents))) > 0:
+                    mutexes.append((a1, a2))
+                    continue
+
+                # Fetch all propositional fluents involved in effects of a1
+                add_a1 = set([add[1] for add in a1.add_effects])
+                del_a1 = set([de[1] for de in a1.del_effects])
+                # Fetch all propositional fluents involved in effects of a2
+                add_a2 = set([add[1] for add in a2.add_effects])
+                del_a2 = set([de[1] for de in a2.del_effects])
+
+                # Condition 2
+                if any(el in add_a2 for el in a1.condition):
+                    mutexes.append((a1, a2))
+
+                if any(el in del_a2 for el in a1.condition):
+                    mutexes.append((a1, a2))
+
+                if any(el in add_a1 for el in a2.condition):
+                    mutexes.append((a1, a2))
+
+                if any(el in del_a1 for el in a2.condition):
+                    mutexes.append((a1, a2))
+
+                # Condition 3
+                if add_a1 & del_a2:
+                    mutexes.append((a1, a2))
+
+                if add_a2 & del_a1:
+                    mutexes.append((a1, a2))
+
+        mutexes = set(tuple(sorted(t, key=lambda a: a.__hash__())) for t in mutexes)
 
         return mutexes
 
@@ -128,13 +193,15 @@ class Encoder():
             del_a1 = set([de[1] for de in a1.del_effects])
             # fetch all numeric fluents involved in effects of a2
             # need to remove auxiliary fluents added by TFD parser
-            num_a1 = set([ne[1].fluent for ne in a1.assign_effects]).union(set([ne[1].expression for ne in a1.assign_effects if not ne[1].expression.symbol.startswith('derived!') ]))
+            num_a1 = set([ne[1].fluent for ne in a1.assign_effects]).union(
+                set([ne[1].expression for ne in a1.assign_effects if
+                     not ne[1].expression.symbol.startswith('derived!')]))
 
             # Variables in numeric preconditions of a1
             variables_pre = []
             for pre in a1.condition:
-                if isinstance(pre,pddl.conditions.FunctionComparison):
-                    variables_pre.append(utils.extractVariablesFC(self,pre))
+                if isinstance(pre, pddl.conditions.FunctionComparison):
+                    variables_pre.append(utils.extractVariablesFC(self, pre))
 
             variables_pre = set([item for sublist in variables_pre for item in sublist])
 
@@ -146,23 +213,25 @@ class Encoder():
                     del_a2 = set([de[1] for de in a2.del_effects])
                     # fetch all numeric fluents involved in effects of a2
                     # need to remove auxiliary fluents added by TFD parser
-                    num_a2 = set([ne[1].fluent for ne in a2.assign_effects]).union(set([ne[1].expression for ne in a2.assign_effects if not ne[1].expression.symbol.startswith('derived!') ]))
+                    num_a2 = set([ne[1].fluent for ne in a2.assign_effects]).union(
+                        set([ne[1].expression for ne in a2.assign_effects if
+                             not ne[1].expression.symbol.startswith('derived!')]))
 
                     # Condition 1
 
                     # for propositional variables
                     if any(el in add_a2 for el in a1.condition):
-                            mutexes.append((a1,a2))
+                        mutexes.append((a1, a2))
 
                     if any(el in del_a2 for el in a1.condition):
-                            mutexes.append((a1,a2))
+                        mutexes.append((a1, a2))
 
                     ## for numeric variables
 
                     variables_eff = []
                     for ne in a2.assign_effects:
-                        if isinstance(ne[1],pddl.conditions.FunctionComparison):
-                            variables_eff.append(utils.extractVariablesFC(self,ne[1]))
+                        if isinstance(ne[1], pddl.conditions.FunctionComparison):
+                            variables_eff.append(utils.extractVariablesFC(self, ne[1]))
 
                         else:
                             variables_eff.append(utils.varNameFromNFluent(ne[1].fluent))
@@ -170,30 +239,27 @@ class Encoder():
                             if ne[1].expression in self.numeric_fluents:
                                 variables_eff.append(utils.varNameFromNFluent(ne[1].expression))
                             else:
-                                utils.extractVariables(self,self.axioms_by_name[ne[1].expression],variables_eff)
+                                utils.extractVariables(self, self.axioms_by_name[ne[1].expression], variables_eff)
 
                     variables_eff = set(variables_eff)
 
-                    if variables_pre &  variables_eff:
-                            mutexes.append((a1,a2))
-
+                    if variables_pre & variables_eff:
+                        mutexes.append((a1, a2))
 
                     ## Condition 2
                     if add_a1 & del_a2:
-                            mutexes.append((a1,a2))
+                        mutexes.append((a1, a2))
 
                     if add_a2 & del_a1:
-                            mutexes.append((a1,a2))
+                        mutexes.append((a1, a2))
 
                     ## Condition 3
                     if num_a1 & num_a2:
-                            mutexes.append((a1,a2))
+                        mutexes.append((a1, a2))
 
-
-        mutexes = set(tuple(sorted(t)) for t in mutexes)
+        mutexes = set(tuple(t) for t in mutexes)
 
         return mutexes
-
 
     def createVariables(self):
         """!
@@ -206,37 +272,32 @@ class Encoder():
 
         # Create boolean variables for boolean fluents
         self.boolean_variables = defaultdict(dict)
-        for step in range(self.horizon+1):
+        for step in range(self.horizon + 1):
             # define SMT  variables only for predicates in the PDDL domain,
             # do not consider new atoms added by the SAS+ translation
             for fluent in self.boolean_fluents:
-                if isinstance(fluent.predicate,str) and fluent.predicate.startswith('defined!'):
+                if isinstance(fluent.predicate, str) and fluent.predicate.startswith('defined!'):
                     continue
-                elif isinstance(fluent.predicate,str) and fluent.predicate.startswith('new-'):
+                elif isinstance(fluent.predicate, str) and fluent.predicate.startswith('new-'):
                     continue
                 else:
                     var_name = utils.varNameFromBFluent(fluent)
-                    self.boolean_variables[step][var_name] = Bool('{}_{}'.format(var_name,step))
-
+                    self.boolean_variables[step][var_name] = Bool('{}_{}'.format(var_name, step))
 
         # Create arithmetic variables for numeric fluents
         self.numeric_variables = defaultdict(dict)
-        for step in range(self.horizon+1):
+        for step in range(self.horizon + 1):
             for fluent in self.numeric_fluents:
                 # skip auxiliary fluents
                 if not fluent.symbol.startswith('derived!'):
                     var_name = utils.varNameFromNFluent(fluent)
-                    self.numeric_variables[step][var_name] = Real('{}_{}'.format(var_name,step))
-
-
-
+                    self.numeric_variables[step][var_name] = Real('{}_{}'.format(var_name, step))
 
         # Create propositional variables for actions
         self.action_variables = defaultdict(dict)
         for step in range(self.horizon):
             for a in self.actions:
-                self.action_variables[step][a.name] = Bool('{}_{}'.format(a.name,step))
-
+                self.action_variables[step][a.name] = Bool('{}_{}'.format(a.name, step))
 
     def encodeInitialState(self):
         """!
@@ -283,7 +344,6 @@ class Encoder():
             else:
                 raise Exception('Initial condition \'{}\': type \'{}\' not recognized'.format(fact, type(fact)))
 
-
         # Close-world assumption: facts not asserted in init formula
         # are assumed to be false
 
@@ -292,7 +352,6 @@ class Encoder():
                 initial.append(Not(variable))
 
         return initial
-
 
     def encodeGoalState(self):
         """!
@@ -324,27 +383,25 @@ class Encoder():
                 if not goal.predicate in axiom_names:
                     if goal in self.boolean_fluents:
                         var_name = utils.varNameFromBFluent(goal)
-                        if  goal.negated:
+                        if goal.negated:
                             propositional_subgoal.append(Not(self.boolean_variables[self.horizon][var_name]))
                         else:
                             propositional_subgoal.append(self.boolean_variables[self.horizon][var_name])
 
             # Check if goal is a conjunction
-            elif isinstance(goal,pddl.conditions.Conjunction):
+            elif isinstance(goal, pddl.conditions.Conjunction):
                 for fact in goal.parts:
                     var_name = utils.varNameFromBFluent(fact)
-                    if  fact.negated:
+                    if fact.negated:
                         propositional_subgoal.append(Not(self.boolean_variables[self.horizon][var_name]))
                     else:
                         propositional_subgoal.append(self.boolean_variables[self.horizon][var_name])
 
             else:
-                raise Exception('Propositional goal condition \'{}\': type \'{}\' not recognized'.format(goal, type(goal)))
+                raise Exception(
+                    'Propositional goal condition \'{}\': type \'{}\' not recognized'.format(goal, type(goal)))
 
             return propositional_subgoal
-
-
-
 
         def _encodeNumericGoals():
             """
@@ -368,7 +425,7 @@ class Encoder():
                             propositional_subgoal = _encodePropositionalGoals(part)
                             for sg in propositional_subgoal:
                                 numeric_subgoal.append(sg)
-                        if isinstance(part,pddl.conditions.FunctionComparison):
+                        if isinstance(part, pddl.conditions.FunctionComparison):
                             expression = utils.inorderTraversalFC(self, part, self.numeric_variables[self.horizon])
                             numeric_subgoal.append(expression)
                 else:
@@ -378,12 +435,11 @@ class Encoder():
         # Build goal formulas
         propositional_subgoal = _encodePropositionalGoals()
         numeric_subgoal = _encodeNumericGoals()
-        goal = And(And(propositional_subgoal),And(numeric_subgoal))
+        goal = And(And(propositional_subgoal), And(numeric_subgoal))
 
         return goal
 
-
-    def encodeActions(self):
+    def encodeActions(self, start_horizon=0):
         """!
         Encodes universal axioms: each action variable implies its preconditions and effects.
 
@@ -393,7 +449,7 @@ class Encoder():
 
         actions = []
 
-        for step in range(self.horizon):
+        for step in range(start_horizon, self.horizon):
             for action in self.actions:
 
                 # Encode preconditions
@@ -401,31 +457,34 @@ class Encoder():
                     if utils.isBoolFluent(pre):
                         var_name = utils.varNameFromBFluent(pre)
                         if pre.negated:
-                            actions.append(Implies(self.action_variables[step][action.name],Not(self.boolean_variables[step][var_name])))
+                            actions.append(Implies(self.action_variables[step][action.name],
+                                                   Not(self.boolean_variables[step][var_name])))
                         else:
-                            actions.append(Implies(self.action_variables[step][action.name],self.boolean_variables[step][var_name]))
+                            actions.append(Implies(self.action_variables[step][action.name],
+                                                   self.boolean_variables[step][var_name]))
 
                     elif isinstance(pre, pddl.conditions.FunctionComparison):
-                        expr = utils.inorderTraversalFC(self,pre,self.numeric_variables[step])
-                        actions.append(Implies(self.action_variables[step][action.name],expr))
+                        expr = utils.inorderTraversalFC(self, pre, self.numeric_variables[step])
+                        actions.append(Implies(self.action_variables[step][action.name], expr))
 
                     else:
-                        raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre,type(pre)))
+                        raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre, type(pre)))
 
                 # Encode add effects
                 for add in action.add_effects:
                     # Check if effect is conditional
                     if len(add[0]) == 0:
-                        actions.append(Implies(self.action_variables[step][action.name],self.boolean_variables[step+1][utils.varNameFromBFluent(add[1])]))
+                        actions.append(Implies(self.action_variables[step][action.name],
+                                               self.boolean_variables[step + 1][utils.varNameFromBFluent(add[1])]))
                     else:
                         raise Exception(' Action {} contains add effect not supported'.format(action.name))
-
 
                 # Encode delete effects
                 for de in action.del_effects:
                     # Check if effect is conditional
                     if len(de[0]) == 0:
-                        actions.append(Implies(self.action_variables[step][action.name],Not(self.boolean_variables[step+1][utils.varNameFromBFluent(de[1])])))
+                        actions.append(Implies(self.action_variables[step][action.name],
+                                               Not(self.boolean_variables[step + 1][utils.varNameFromBFluent(de[1])])))
                     else:
                         raise Exception(' Action {} contains del effect not supported'.format(action.name))
 
@@ -447,11 +506,12 @@ class Encoder():
                             var_name = utils.varNameFromNFluent(ne.fluent)
 
                             this_step_variable = self.numeric_variables[step][var_name]
-                            next_step_variable = self.numeric_variables[step+1][var_name]
+                            next_step_variable = self.numeric_variables[step + 1][var_name]
 
                             # Handle right side
 
-                            if ne.expression in self.numeric_fluents and not ne.expression.symbol.startswith('derived!'): #don't consider variables added by TFD
+                            if ne.expression in self.numeric_fluents and not ne.expression.symbol.startswith(
+                                    'derived!'):  # don't consider variables added by TFD
                                 # right side is a simple fluent
                                 var_name = utils.varNameFromNFluent(ne.expression)
                                 expr = self.numeric_variables[step][var_name]
@@ -459,19 +519,23 @@ class Encoder():
                                 # retrieve axioms corresponding to expression
                                 numeric_axiom = self.axioms_by_name[ne.expression]
                                 # build SMT expression
-                                expr = utils.inorderTraversal(self,numeric_axiom, self.numeric_variables[step])
-
+                                expr = utils.inorderTraversal(self, numeric_axiom, self.numeric_variables[step])
 
                             if ne.symbol == '=':
-                                actions.append(Implies(self.action_variables[step][action.name], next_step_variable == expr))
+                                actions.append(
+                                    Implies(self.action_variables[step][action.name], next_step_variable == expr))
                             elif ne.symbol == '+':
-                                actions.append(Implies(self.action_variables[step][action.name], next_step_variable == this_step_variable + expr))
+                                actions.append(Implies(self.action_variables[step][action.name],
+                                                       next_step_variable == this_step_variable + expr))
                             elif ne.symbol == '-':
-                                actions.append(Implies(self.action_variables[step][action.name], next_step_variable == this_step_variable - expr))
+                                actions.append(Implies(self.action_variables[step][action.name],
+                                                       next_step_variable == this_step_variable - expr))
                             elif ne.symbol == '*':
-                                actions.append(Implies(self.action_variables[step][action.name], next_step_variable == this_step_variable * expr))
+                                actions.append(Implies(self.action_variables[step][action.name],
+                                                       next_step_variable == this_step_variable * expr))
                             elif ne.symbol == '/':
-                                actions.append(Implies(self.action_variables[step][action.name], next_step_variable == this_step_variable / expr))
+                                actions.append(Implies(self.action_variables[step][action.name],
+                                                       next_step_variable == this_step_variable / expr))
                             else:
                                 raise Exception('Operator not recognized')
                         else:
@@ -482,7 +546,19 @@ class Encoder():
 
         return actions
 
-    def encodeFrame(self):
+    def encodeActionForStep(self, start_horizon=0):
+        step_action_constraints = []
+
+        for step in range(start_horizon, self.horizon):
+            step_action_variables = []
+            for action in self.actions:
+                action_variable = self.action_variables[step][action.name]
+                step_action_variables.append(action_variable)
+            step_action_constraints.append(z3.Or(step_action_variables))
+
+        return step_action_constraints
+
+    def encodeFrame(self, start_horizon=0):
         """!
         Encode explanatory frame axioms: a predicate retains its value unless
         it is modified by the effects of an action.
@@ -498,12 +574,12 @@ class Encoder():
 
         sentinel = object()
 
-        for step in range(self.horizon):
+        for step in range(start_horizon, self.horizon):
             # Encode frame axioms for boolean fluents
             for fluent in self.boolean_fluents:
                 var_name = utils.varNameFromBFluent(fluent)
                 fluent_pre = self.boolean_variables[step].get(var_name, sentinel)
-                fluent_post = self.boolean_variables[step+1].get(var_name, sentinel)
+                fluent_post = self.boolean_variables[step + 1].get(var_name, sentinel)
 
                 # Encode frame axioms only if atoms have SMT variables associated
                 if fluent_pre is not sentinel and fluent_post is not sentinel:
@@ -519,13 +595,13 @@ class Encoder():
                         if fluent in del_eff:
                             action_del.append(self.action_variables[step][action.name])
 
-                    frame.append(Implies(And(Not(fluent_pre),fluent_post),Or(action_add)))
-                    frame.append(Implies(And(fluent_pre,Not(fluent_post)),Or(action_del)))
+                    frame.append(Implies(And(Not(fluent_pre), fluent_post), Or(action_add)))
+                    frame.append(Implies(And(fluent_pre, Not(fluent_post)), Or(action_del)))
 
             # Encode frame axioms for numeric fluents
             for fluent in self.numeric_fluents:
                 fluent_pre = self.numeric_variables[step].get(utils.varNameFromNFluent(fluent), sentinel)
-                fluent_post = self.numeric_variables[step+1].get(utils.varNameFromNFluent(fluent), sentinel)
+                fluent_post = self.numeric_variables[step + 1].get(utils.varNameFromNFluent(fluent), sentinel)
 
                 if fluent_pre is not sentinel and fluent_post is not sentinel:
                     action_num = []
@@ -535,13 +611,12 @@ class Encoder():
                         if fluent in num_eff:
                             action_num.append(self.action_variables[step][action.name])
 
-                    #TODO
+                    # TODO
                     # Can we write frame axioms for num effects in a more
                     # efficient way?
                     frame.append(Or(fluent_post == fluent_pre, Or(action_num)))
 
         return frame
-
 
     def encodeExecutionSemantics(self):
         """!
@@ -549,16 +624,13 @@ class Encoder():
 
         @return axioms that specify execution semantics.
         """
+        return self.modifier.do_encode(variables=self.action_variables, bound=self.horizon)
+        # try:
+        #     return self.modifier.do_encode(self.action_variables, self.horizon)
+        # except:
+        #     return self.modifier.do_encode(self.action_variables, self.mutexes, self.horizon)
 
-        try:
-            return self.modifier.do_encode(self.action_variables, self.horizon)
-        except:
-            return self.modifier.do_encode(self.action_variables, self.mutexes, self.horizon)
-
-
-
-
-    def encode(self,horizon):
+    def encode(self, horizon):
         """
         Basic method to build bounded encoding.
 
@@ -572,7 +644,7 @@ class EncoderSMT(Encoder):
     Class that defines method to build SMT encoding.
     """
 
-    def encode(self,horizon):
+    def encode(self, horizon):
         """!
         Builds SMT encoding.
 
@@ -588,31 +660,405 @@ class EncoderSMT(Encoder):
 
         # Start encoding formula
 
-        formula = defaultdict(list)
+        self.formula = defaultdict(list)
 
         # Encode initial state axioms
 
-        formula['initial'] = self.encodeInitialState()
+        self.formula['initial'] = self.encodeInitialState()
 
         # Encode goal state axioms
 
-        formula['goal'] = self.encodeGoalState()
+        self.formula['goal'] = self.encodeGoalState()
 
         # Encode universal axioms
 
-        formula['actions'] = self.encodeActions()
+        self.formula['actions'] = self.encodeActions()
 
         # Encode explanatory frame axioms
 
-        formula['frame'] = self.encodeFrame()
+        self.formula['frame'] = self.encodeFrame()
 
         # Encode execution semantics (lin/par)
 
-        formula['sem'] = self.encodeExecutionSemantics()
+        self.formula['sem'] = self.encodeExecutionSemantics()
 
-        return formula
+        # There should be at least one action for each step
+
+        self.formula['step'] = self.encodeActionForStep()
+
+        return self.formula
+
+    def incremental(self, horizon=None):
+        last_horizon = self.horizon
+        if horizon is None:
+            self.horizon += 1
+        else:
+            assert horizon > self.horizon
+            self.horizon = horizon
+
+        self.createVariables()
+
+        self.formula['goal'] = self.encodeGoalState()
+
+        for step in range(last_horizon, self.horizon):
+            pbc = [(var, 1) for var in self.action_variables[step].values()]
+            self.formula['sem'].append(PbLe(pbc, 1))
+
+        self.formula['frame'] += self.encodeFrame(last_horizon)
+
+        self.formula['actions'] += self.encodeActions(last_horizon)
+
+        # there should be at least one action for each step
+        self.formula['step'] += self.encodeActionForStep(last_horizon)
+
+        return self.formula
 
 
+class MREncoderSMT(Encoder):
+    """
+    Class that defines method to build SMT encoding.
+    """
+
+    def __init__(self, task, modifier):
+        super().__init__(task, modifier)
+        self.pre_mutexed_action_pairs = []
+        self.manip_mutexed_action_pairs = []
+        self.pre_never_actions = []
+        self.manip_never_actions = []
+        self.pre_never_mr_actions = []
+        self.manip_never_mr_actions = []
+
+        self.pre_must_moved_movables = {}
+        self.manip_must_moved_movables = {}
+        self.pre_mr_action_must_moved_movables = {}
+        self.manip_mr_action_must_moved_movables = {}
+
+    def encode(self, horizon):
+        """!
+        Builds SMT encoding.
+
+        @param horizon: horizon for bounded planning formula.
+        @return formula: dictionary containing subformulas.
+        """
+
+        # initialize horizon
+        self.horizon = horizon
+
+        # Create variables
+        self.createVariables()
+
+        # Start encoding formula
+
+        self.formula = defaultdict(list)
+
+        # Encode initial state axioms
+
+        self.formula['initial'] = self.encodeInitialState()
+
+        # Encode goal state axioms
+
+        self.formula['goal'] = self.encodeGoalState()
+
+        # Encode universal axioms
+
+        self.formula['actions'] = self.encodeActions()
+
+        # Encode explanatory frame axioms
+
+        self.formula['frame'] = self.encodeFrame()
+
+        # Encode execution semantics (lin/par)
+
+        self.formula['sem'] = self.encodeExecutionSemantics()
+
+        # There should be at least one action for each step
+
+        self.formula['step'] = self.encodeActionForStep()
+
+        self.formula['action_must_moved'] = []
+
+        return self.formula
+
+    def encodeExecutionSemantics(self):
+        """!
+        Encodes execution semantics as specified by modifier class.
+
+        @return axioms that specify execution semantics.
+        """
+        return self.modifier.do_mr_encode(variables=self.action_variables, mutexes=self.mutexes, bound=self.horizon)
+
+    def process_action(self, action):
+        args = action.strip()[1:-1].strip().split(' ')
+        name = args[0]
+        if 'handover' in name:
+            pre_robot = args[1]
+            manip_robot = args[2]
+            movable = args[3]
+            pre_grasp = args[4]
+            manip_grasp = args[5]
+            pre_region = args[6]
+            manip_region = args[7]
+        elif 'pickandplace' in name:
+            pre_robot = args[1]
+            manip_robot = args[1]
+            movable = args[2]
+            pre_grasp = args[3]
+            manip_grasp = args[3]
+            pre_region = args[4]
+            manip_region = args[4]
+        else:
+            raise NotImplementedError("The action {} is not supported".format(name))
+
+        return (pre_robot, movable, pre_grasp, pre_region), (manip_robot, movable, manip_grasp, manip_region)
+
+    def incremental(self, horizon=None):
+        last_horizon = self.horizon
+        if horizon is None:
+            self.horizon += 1
+        else:
+            assert horizon > self.horizon
+            self.horizon = horizon
+
+        self.createVariables()
+
+        self.formula['goal'] = self.encodeGoalState()
+
+        for step in range(last_horizon, self.horizon):
+            # pbc = [(var, 1) for var in self.action_variables[step].values()]
+            # self.formula['sem'].append(PbLe(pbc, 1))
+            for pair in self.mutexes:
+                self.formula['sem'].append(Or(Not(self.action_variables[step][pair[0].name]),
+                                              Not(self.action_variables[step][pair[1].name])))
+
+        self.formula['frame'] += self.encodeFrame(last_horizon)
+
+        self.formula['actions'] += self.encodeActions(last_horizon)
+
+        # there should be at least one action for each step
+        self.formula['step'] += self.encodeActionForStep(last_horizon)
+
+        for i in range(last_horizon, self.horizon):
+            for pre_mutexed_action1, pre_mutexed_action2 in self.pre_mutexed_action_pairs:
+                # we should find all actions that have the same pre action with pre_mutexed_action1
+                # and all actions that have the same pre action with pre_mutexed_action2
+                pre_info_m_a1, manip_info_m_a1 = self.process_action(pre_mutexed_action1)
+                pre_info_m_a2, manip_info_m_a2 = self.process_action(pre_mutexed_action2)
+
+                pre_mutexed_action1_lst = []
+                pre_mutexed_action2_lst = []
+
+                for action in self.actions:
+                    pre_info_a, manip_info_a = self.process_action(action.name)
+
+                    if pre_info_a == pre_info_m_a1:
+                        pre_mutexed_action1_lst.append(action.name)
+                    elif pre_info_a == pre_info_m_a2:
+                        pre_mutexed_action2_lst.append(action.name)
+
+                for pre_mutexed_action1_same in pre_mutexed_action1_lst:
+                    for pre_mutexed_action2_same in pre_mutexed_action2_lst:
+                        horizon_mutexed_action1_same = self.action_variables[int(i)][pre_mutexed_action1_same]
+                        horizon_mutexed_action2_same = self.action_variables[int(i)][pre_mutexed_action2_same]
+                        self.formula['action_must_moved'].append(
+                            Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
+                        self.formula['action_must_moved'].append(
+                            Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
+
+            # we then add never actions
+            for pre_never_action in self.pre_never_actions:
+                # first find all actions that have the same pre action with pre_never_action
+                pre_info_n_a, _ = self.process_action(pre_never_action)
+
+                for action in self.actions:
+                    pre_info_a, _ = self.process_action(action.name)
+
+                    if pre_info_a == pre_info_n_a:
+                        horizon_never_action_same = self.action_variables[int(i)][action.name]
+                        self.formula['action_must_moved'].append(Not(horizon_never_action_same))
+
+            for manip_never_action in self.manip_never_actions:
+                # first find all actions that have the same manip action with manip_never_action
+                _, manip_info_n_a = self.process_action(manip_never_action)
+
+                for action in self.actions:
+                    _, manip_info_a = self.process_action(action.name)
+
+                    if manip_info_a == manip_info_n_a:
+                        horizon_never_action_same = self.action_variables[int(i)][action.name]
+                        self.formula['action_must_moved'].append(Not(horizon_never_action_same))
+
+            # we then add never mr actions
+            for pre_never_mr_action in self.pre_never_mr_actions:
+                if len(pre_never_mr_action) == 1:
+                    involved_sr_action = pre_never_mr_action[0]
+                    pre_info_n_a, _ = self.process_action(involved_sr_action)
+                    for action in self.actions:
+                        pre_info_a, _ = self.process_action(action.name)
+
+                        if pre_info_a == pre_info_n_a:
+                            horizon_never_action_same = self.action_variables[int(i)][action.name]
+                            self.formula['action_must_moved'].append(Not(horizon_never_action_same))
+                elif len(pre_never_mr_action) == 2:
+                    pre_mutexed_action1 = pre_never_mr_action[0]
+                    pre_mutexed_action2 = pre_never_mr_action[1]
+
+                    pre_info_m_a1, manip_info_m_a1 = self.process_action(pre_mutexed_action1)
+                    pre_info_m_a2, manip_info_m_a2 = self.process_action(pre_mutexed_action2)
+
+                    pre_mutexed_action1_lst = []
+                    pre_mutexed_action2_lst = []
+
+                    for action in self.actions:
+                        pre_info_a, manip_info_a = self.process_action(action.name)
+
+                        if pre_info_a == pre_info_m_a1:
+                            pre_mutexed_action1_lst.append(action.name)
+                        elif pre_info_a == pre_info_m_a2:
+                            pre_mutexed_action2_lst.append(action.name)
+
+                    for pre_mutexed_action1_same in pre_mutexed_action1_lst:
+                        for pre_mutexed_action2_same in pre_mutexed_action2_lst:
+                            horizon_mutexed_action1_same = self.action_variables[int(i)][
+                                pre_mutexed_action1_same]
+                            horizon_mutexed_action2_same = self.action_variables[int(i)][
+                                pre_mutexed_action2_same]
+                            self.formula['action_must_moved'].append(
+                                Implies(horizon_mutexed_action1_same, Not(horizon_mutexed_action2_same)))
+                            self.formula['action_must_moved'].append(
+                                Implies(horizon_mutexed_action2_same, Not(horizon_mutexed_action1_same)))
+                else:
+                    raise NotImplementedError("We only support 2 robots for this baseline.")
+
+            for action, must_move_movables in self.pre_must_moved_movables.items():
+                pre_info_mu_a, manip_info_mu_a = self.process_action(action)
+
+                # find all actions with the same pre-action (will share the same pre_constrains)
+                actions_same_pre = []
+                for action_candidate in self.actions:
+                    pre_info_ac, manip_info_ac = self.process_action(action_candidate.name)
+                    if pre_info_ac == pre_info_mu_a:
+                        actions_same_pre.append(action_candidate.name)
+
+                for action_same_pre in actions_same_pre:
+                    constraint = Implies(self.action_variables[i][action_same_pre],
+                                         And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
+                                              must_move_movables]))
+                    self.formula['action_must_moved'].append(constraint)
+
+            # for manip
+            # for action, must_move_movables in self.manip_must_moved_movables.items():
+            #     _, manip_info_mu_a = self.process_action(action)
+            #
+            #     # find all actions with the same pre-action (will share the same pre_constrains)
+            #     actions_same_after = []
+            #     for action_candidate in self.actions:
+            #         _, manip_info_ac = self.process_action(action_candidate.name)
+            #         if manip_info_ac == manip_info_mu_a:
+            #             actions_same_after.append(action_candidate.name)
+            #
+            #     for action_same_after in actions_same_after:
+            #         constraint = Implies(self.action_variables[i][action_same_after],
+            #                              And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
+            #                                   must_move_movables]))
+            #         self.formula['action_must_moved'].append(constraint)
+
+            for pre_mr_action, pre_mr_action_must_moved_movables in self.pre_mr_action_must_moved_movables.items():
+                if len(pre_mr_action) == 1:
+                    involved_sr_action = pre_mr_action[0]
+
+                    pre_info_mu_a, _ = self.process_action(involved_sr_action)
+
+                    # find all actions with the same pre-action (will share the same pre_constrains)
+                    actions_same_pre = []
+                    for action_candidate in self.actions:
+                        pre_info_ac, _ = self.process_action(action_candidate.name)
+                        if pre_info_ac == pre_info_mu_a:
+                            actions_same_pre.append(action_candidate.name)
+
+                    for action_same_pre in actions_same_pre:
+                        constraint = Implies(self.action_variables[i][action_same_pre],
+                                             And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
+                                                  pre_mr_action_must_moved_movables]))
+                        self.formula['action_must_moved'].append(constraint)
+
+                elif len(pre_mr_action) == 2:
+                    involved_sr_action1 = pre_mr_action[0]
+                    involved_sr_action2 = pre_mr_action[1]
+                    pre_info_m_a1, _ = self.process_action(involved_sr_action1)
+                    pre_info_m_a2, _ = self.process_action(involved_sr_action2)
+
+                    pre_action1_lst = []
+                    pre_action2_lst = []
+
+                    for action in self.actions:
+                        pre_info_a, _ = self.process_action(action.name)
+
+                        if pre_info_a == pre_info_m_a1:
+                            pre_action1_lst.append(action.name)
+                        elif pre_info_a == pre_info_m_a2:
+                            pre_action2_lst.append(action.name)
+
+                    for pre_action1_same in pre_action1_lst:
+                        for pre_action2_same in pre_action2_lst:
+                            horizon_action1_same = self.action_variables[int(i)][pre_action1_same]
+                            horizon_action2_same = self.action_variables[int(i)][pre_action2_same]
+                            self.formula['action_must_moved'].append(Implies(And(horizon_action1_same,
+                                                                                 horizon_action2_same),
+                                                                             And([self.boolean_variables[i][
+                                                                                      'moved_' + str(movable)] for
+                                                                                  movable in
+                                                                                  pre_mr_action_must_moved_movables])))
+                else:
+                    raise NotImplementedError()
+
+            # for manip_mr_action, manip_mr_action_must_moved_movables in self.manip_mr_action_must_moved_movables.items():
+            #     if len(manip_mr_action) == 1:
+            #         involved_sr_action = manip_mr_action[0]
+            #
+            #         _, manip_info_mu_a = self.process_action(involved_sr_action)
+            #
+            #         # find all actions with the same pre-action (will share the same pre_constrains)
+            #         actions_same_manip = []
+            #         for action_candidate in self.actions:
+            #             _, manip_info_ac = self.process_action(action_candidate.name)
+            #             if manip_info_ac[:2] == manip_info_mu_a[:2]:
+            #                 actions_same_manip.append(action_candidate.name)
+            #
+            #         for action_same_manip in actions_same_manip:
+            #             constraint = Implies(self.action_variables[i][action_same_manip],
+            #                                  And([self.boolean_variables[i]['moved_' + str(movable)] for movable in
+            #                                       manip_mr_action_must_moved_movables]))
+            #             self.formula['action_must_moved'].append(constraint)
+            #     elif len(manip_mr_action) == 2:
+            #         involved_sr_action1 = manip_mr_action[0]
+            #         involved_sr_action2 = manip_mr_action[1]
+            #         _, manip_info_m_a1 = self.process_action(involved_sr_action1)
+            #         _, manip_info_m_a2 = self.process_action(involved_sr_action2)
+            #
+            #         manip_action1_lst = []
+            #         manip_action2_lst = []
+            #
+            #         for action in self.actions:
+            #             _, manip_info_a = self.process_action(action.name)
+            #
+            #             if manip_info_a[:2] == manip_info_m_a1[:2]:
+            #                 manip_action1_lst.append(action.name)
+            #             elif manip_info_a[:2] == manip_info_m_a2[:2]:
+            #                 manip_action2_lst.append(action.name)
+            #
+            #         for manip_action1_same in manip_action1_lst:
+            #             for manip_action2_same in manip_action2_lst:
+            #                 horizon_action1_same = self.action_variables[int(i)][manip_action1_same]
+            #                 horizon_action2_same = self.action_variables[int(i)][manip_action2_same]
+            #                 self.formula['action_must_moved'].append(
+            #                     Implies(And(horizon_action1_same, horizon_action2_same),
+            #                             And([self.boolean_variables[i]['moved_' + str(movable)] for
+            #                                  movable in
+            #                                  manip_mr_action_must_moved_movables])))
+            #     else:
+            #         raise NotImplementedError()
+
+        return self.formula
 
 
 class EncoderOMT(Encoder):
@@ -630,13 +1076,13 @@ class EncoderOMT(Encoder):
         """
 
         if self.task.metric:
-             objective = utils.buildMetricExpr(self)
+            objective = utils.buildMetricExpr(self)
 
         else:
             objective = []
             for step in range(self.horizon):
                 for action in self.action_variables[step].values():
-                    objective.append(If(action,1.0,0.0))
+                    objective.append(If(action, 1.0, 0.0))
 
             objective = sum(objective)
 
@@ -654,21 +1100,20 @@ class EncoderOMT(Encoder):
         step = self.horizon + 1
 
         for var_name in self.boolean_variables[0].keys():
-            self.touched_variables[var_name] = Bool('t{}_{}'.format(var_name,self.horizon+1))
+            self.touched_variables[var_name] = Bool('t{}_{}'.format(var_name, self.horizon + 1))
 
         for var_name in self.numeric_variables[0].keys():
             if not var_name in self.var_objective:
-                self.touched_variables[var_name] = Bool('t{}_{}'.format(var_name,self.horizon+1))
+                self.touched_variables[var_name] = Bool('t{}_{}'.format(var_name, self.horizon + 1))
 
         # create sets of relaxed action variables for
         # steps n, n+1
 
         self.auxiliary_actions = defaultdict(dict)
 
-        for step in range(self.horizon,self.horizon+2):
+        for step in range(self.horizon, self.horizon + 2):
             for action in self.actions:
-                self.auxiliary_actions[step][action.name] = Bool('{}_{}'.format(action.name,step))
-
+                self.auxiliary_actions[step][action.name] = Bool('{}_{}'.format(action.name, step))
 
     def encodeRelaxedActions(self):
         """!
@@ -694,36 +1139,40 @@ class EncoderOMT(Encoder):
                 if utils.isBoolFluent(pre):
                     var_name = utils.varNameFromBFluent(pre)
                     if pre.negated:
-                        relax.append(Implies(self.auxiliary_actions[step][action.name],Not(self.boolean_variables[step][var_name])))
+                        relax.append(Implies(self.auxiliary_actions[step][action.name],
+                                             Not(self.boolean_variables[step][var_name])))
                     else:
-                        relax.append(Implies(self.auxiliary_actions[step][action.name],self.boolean_variables[step][var_name]))
+                        relax.append(
+                            Implies(self.auxiliary_actions[step][action.name], self.boolean_variables[step][var_name]))
 
                 elif isinstance(pre, pddl.conditions.FunctionComparison):
-                    expr = utils.inorderTraversalFC(self,pre,self.numeric_variables[step])
-                    relax.append(Implies(self.auxiliary_actions[step][action.name],expr))
+                    expr = utils.inorderTraversalFC(self, pre, self.numeric_variables[step])
+                    relax.append(Implies(self.auxiliary_actions[step][action.name], expr))
 
                 else:
-                    raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre,type(pre)))
+                    raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre, type(pre)))
 
             # Encode abstract add effects
             for add in action.add_effects:
                 if len(add[0]) == 0:
-                    relax.append(Implies(self.auxiliary_actions[step][action.name],self.touched_variables[utils.varNameFromBFluent(add[1])]))
+                    relax.append(Implies(self.auxiliary_actions[step][action.name],
+                                         self.touched_variables[utils.varNameFromBFluent(add[1])]))
                 elif len(add[0]) == 1:
-                    relax.append(Implies(self.auxiliary_actions[step][action.name],self.touched_variables[utils.varNameFromBFluent(add[1])]))
+                    relax.append(Implies(self.auxiliary_actions[step][action.name],
+                                         self.touched_variables[utils.varNameFromBFluent(add[1])]))
                 else:
                     raise Exception(' Action {} contains add effect not supported'.format(action.name))
-
 
             # Encode abstract delete effects
             for de in action.del_effects:
                 if len(de[0]) == 0:
-                    relax.append(Implies(self.auxiliary_actions[step][action.name], self.touched_variables[utils.varNameFromBFluent(de[1])]))
+                    relax.append(Implies(self.auxiliary_actions[step][action.name],
+                                         self.touched_variables[utils.varNameFromBFluent(de[1])]))
                 elif len(de[0]) == 1:
-                    relax.append(Implies(self.auxiliary_actions[step][action.name], self.touched_variables[utils.varNameFromBFluent(de[1])]))
+                    relax.append(Implies(self.auxiliary_actions[step][action.name],
+                                         self.touched_variables[utils.varNameFromBFluent(de[1])]))
                 else:
                     raise Exception(' Action {} contains del effect not supported'.format(action.name))
-
 
             # Encode  abstract numeric effects
 
@@ -738,12 +1187,14 @@ class EncoderOMT(Encoder):
                         # retrieve variable name
                         var_name = utils.varNameFromNFluent(ne[1].fluent)
                         if not var_name in self.var_objective:
-                            relax.append(Implies(self.auxiliary_actions[step][action.name],self.touched_variables[var_name]))
+                            relax.append(
+                                Implies(self.auxiliary_actions[step][action.name], self.touched_variables[var_name]))
                         else:
 
                             ## Handle right side
 
-                            if ne[1].expression in self.numeric_fluents and not ne[1].expression.symbol.startswith('derived!'): ##don't consider variables added by TFD
+                            if ne[1].expression in self.numeric_fluents and not ne[1].expression.symbol.startswith(
+                                    'derived!'):  ##don't consider variables added by TFD
                                 # right side is a simple fluent
                                 var_name = utils.varNameFromNFluent(ne[1].expression)
                                 expr = self.numeric_variables[step][var_name]
@@ -751,7 +1202,7 @@ class EncoderOMT(Encoder):
                                 # retrieve axioms corresponding to expression
                                 numeric_axiom = self.axioms_by_name[ne[1].expression]
                                 # build SMT expression
-                                expr = utils.inorderTraversal(self,numeric_axiom, self.numeric_variables[step])
+                                expr = utils.inorderTraversal(self, numeric_axiom, self.numeric_variables[step])
 
                             self.final_costs[action.name].append(expr)
 
@@ -763,7 +1214,6 @@ class EncoderOMT(Encoder):
 
         return relax
 
-
     def encodeTransitiveClosure(self):
         """!
         Encodes computation of transitive closure at step n+1  (see related paper).
@@ -773,7 +1223,7 @@ class EncoderOMT(Encoder):
 
         trac = []
 
-        step = self.horizon+1
+        step = self.horizon + 1
 
         for action in self.actions:
 
@@ -783,40 +1233,43 @@ class EncoderOMT(Encoder):
                 if utils.isBoolFluent(pre):
                     var_name = utils.varNameFromBFluent(pre)
                     if pre.negated:
-                        trac.append(Implies(self.auxiliary_actions[step][action.name],Or(Not(self.boolean_variables[step-1][var_name]),self.touched_variables[var_name])))
+                        trac.append(Implies(self.auxiliary_actions[step][action.name],
+                                            Or(Not(self.boolean_variables[step - 1][var_name]),
+                                               self.touched_variables[var_name])))
                     else:
-                        trac.append(Implies(self.auxiliary_actions[step][action.name],Or(self.boolean_variables[step-1][var_name],self.touched_variables[var_name])))
+                        trac.append(Implies(self.auxiliary_actions[step][action.name],
+                                            Or(self.boolean_variables[step - 1][var_name],
+                                               self.touched_variables[var_name])))
 
                 elif isinstance(pre, pddl.conditions.FunctionComparison):
-                    expr = utils.inorderTraversalFC(self,pre,self.numeric_variables[step-1])
+                    expr = utils.inorderTraversalFC(self, pre, self.numeric_variables[step - 1])
 
                     # extract touched variables
                     tvariables = []
 
-                    for var_name in utils.extractVariablesFC(self,pre):
+                    for var_name in utils.extractVariablesFC(self, pre):
                         tvariables.append(self.touched_variables[var_name])
 
-                    trac.append(Implies(self.auxiliary_actions[step][action.name],Or(expr,Or(tvariables))))
+                    trac.append(Implies(self.auxiliary_actions[step][action.name], Or(expr, Or(tvariables))))
 
                 else:
-                    raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre,type(pre)))
-
+                    raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre, type(pre)))
 
             # Encode relaxed add effects
             for add in action.add_effects:
                 if len(add[0]) == 0:
-                    trac.append(Implies(self.auxiliary_actions[step][action.name],self.touched_variables[utils.varNameFromBFluent(add[1])]))
+                    trac.append(Implies(self.auxiliary_actions[step][action.name],
+                                        self.touched_variables[utils.varNameFromBFluent(add[1])]))
                 else:
                     raise Exception(' Action {} contains add effect not supported'.format(action.name))
-
 
             # Encode relaxed delete effects
             for de in action.del_effects:
                 if len(de[0]) == 0:
-                    trac.append(Implies(self.auxiliary_actions[step][action.name], self.touched_variables[utils.varNameFromBFluent(de[1])]))
+                    trac.append(Implies(self.auxiliary_actions[step][action.name],
+                                        self.touched_variables[utils.varNameFromBFluent(de[1])]))
                 else:
                     raise Exception(' Action {} contains del effect not supported'.format(action.name))
-
 
             # Encode relaxed numeric effects
 
@@ -831,7 +1284,8 @@ class EncoderOMT(Encoder):
                         # retrieve variable name
                         var_name = utils.varNameFromNFluent(ne[1].fluent)
                         if not var_name in self.var_objective:
-                            trac.append(Implies(self.auxiliary_actions[step][action.name],self.touched_variables[var_name]))
+                            trac.append(
+                                Implies(self.auxiliary_actions[step][action.name], self.touched_variables[var_name]))
 
                     else:
 
@@ -851,19 +1305,18 @@ class EncoderOMT(Encoder):
 
             if self.boolean_variables[0].get(var_name, sentinel) is not sentinel:
 
-                action_eff= []
+                action_eff = []
 
                 for action in self.actions:
                     add_eff = [add[1] for add in action.add_effects]
                     if fluent in add_eff:
                         action_eff.append(self.auxiliary_actions[step][action.name])
-                        action_eff.append(self.auxiliary_actions[step-1][action.name])
+                        action_eff.append(self.auxiliary_actions[step - 1][action.name])
 
                     del_eff = [de[1] for de in action.del_effects]
                     if fluent in del_eff:
                         action_eff.append(self.auxiliary_actions[step][action.name])
-                        action_eff.append(self.auxiliary_actions[step-1][action.name])
-
+                        action_eff.append(self.auxiliary_actions[step - 1][action.name])
 
                 trac.append(Implies(self.touched_variables[var_name], Or(action_eff)))
 
@@ -884,11 +1337,9 @@ class EncoderOMT(Encoder):
 
                         if fluent in num_eff:
                             action_num.append(self.auxiliary_actions[step][action.name])
-                            action_num.append(self.auxiliary_actions[step-1][action.name])
+                            action_num.append(self.auxiliary_actions[step - 1][action.name])
 
-
-                    trac.append(Implies(self.touched_variables[var_name],  Or(action_num)))
-
+                    trac.append(Implies(self.touched_variables[var_name], Or(action_num)))
 
         return trac
 
@@ -898,7 +1349,6 @@ class EncoderOMT(Encoder):
 
         @return goal: relaxed goal formula
         """
-
 
         def _encodeRelPropositionalGoals(goal=None):
             """
@@ -923,25 +1373,29 @@ class EncoderOMT(Encoder):
                 if not goal.predicate in axiom_names:
                     if goal in self.boolean_fluents:
                         var_name = utils.varNameFromBFluent(goal)
-                        if  goal.negated:
-                            propositional_subgoal.append(Or(Not(self.boolean_variables[self.horizon][var_name]), self.touched_variables[var_name]))
+                        if goal.negated:
+                            propositional_subgoal.append(Or(Not(self.boolean_variables[self.horizon][var_name]),
+                                                            self.touched_variables[var_name]))
                         else:
-                            propositional_subgoal.append(Or(self.boolean_variables[self.horizon][var_name],self.touched_variables[var_name]))
+                            propositional_subgoal.append(
+                                Or(self.boolean_variables[self.horizon][var_name], self.touched_variables[var_name]))
 
             # Check if goal is a conjunction
-            elif isinstance(goal,pddl.conditions.Conjunction):
+            elif isinstance(goal, pddl.conditions.Conjunction):
                 for fact in goal.parts:
                     var_name = utils.varNameFromBFluent(fact)
-                    if  fact.negated:
-                        propositional_subgoal.append(Or(Not(self.boolean_variables[self.horizon][var_name]),self.touched_variables[var_name]))
+                    if fact.negated:
+                        propositional_subgoal.append(
+                            Or(Not(self.boolean_variables[self.horizon][var_name]), self.touched_variables[var_name]))
                     else:
-                        propositional_subgoal.append(Or(self.boolean_variables[self.horizon][var_name],self.touched_variables[var_name]))
+                        propositional_subgoal.append(
+                            Or(self.boolean_variables[self.horizon][var_name], self.touched_variables[var_name]))
 
             else:
-                raise Exception('Propositional goal condition \'{}\': type \'{}\' not recognized'.format(goal, type(goal)))
+                raise Exception(
+                    'Propositional goal condition \'{}\': type \'{}\' not recognized'.format(goal, type(goal)))
 
             return propositional_subgoal
-
 
         def _encodeRelNumericGoals():
             """
@@ -959,7 +1413,7 @@ class EncoderOMT(Encoder):
                     # extract touched variables
                     tvariables = []
 
-                    for var_name in utils.extractVariablesFC(self,condition):
+                    for var_name in utils.extractVariablesFC(self, condition):
                         tvariables.append(self.touched_variables[var_name])
 
                     numeric_subgoal.append(Or(expression, Or(tvariables)))
@@ -973,14 +1427,14 @@ class EncoderOMT(Encoder):
                             propositional_subgoal = _encodeRelPropositionalGoals(part)
                             for sg in propositional_subgoal:
                                 numeric_subgoal.append(sg)
-                        if isinstance(part,pddl.conditions.FunctionComparison):
+                        if isinstance(part, pddl.conditions.FunctionComparison):
 
                             expression = utils.inorderTraversalFC(self, part, self.numeric_variables[self.horizon])
 
                             # extract touched variables
                             tvariables = []
 
-                            for var_name in utils.extractVariablesFC(self,part):
+                            for var_name in utils.extractVariablesFC(self, part):
                                 tvariables.append(self.touched_variables[var_name])
 
                             numeric_subgoal.append(Or(expression, Or(tvariables)))
@@ -989,14 +1443,12 @@ class EncoderOMT(Encoder):
                     raise Exception('Numeric goal condition not recognized')
             return numeric_subgoal
 
-
         propositional_subgoal = _encodeRelPropositionalGoals()
         numeric_subgoal = _encodeRelNumericGoals()
 
-        rel_goal = And(And(propositional_subgoal),And(numeric_subgoal))
+        rel_goal = And(And(propositional_subgoal), And(numeric_subgoal))
 
         return rel_goal
-
 
     def encodeAdditionalCosts(self):
         """!
@@ -1011,14 +1463,14 @@ class EncoderOMT(Encoder):
         costs = []
         constraints = []
 
-        for step in range(self.horizon,self.horizon+2):
+        for step in range(self.horizon, self.horizon + 2):
             cost = Real('add_cost_{}'.format(step))
             total = []
-            for a,v in self.auxiliary_actions[step].items():
+            for a, v in self.auxiliary_actions[step].items():
                 if self.task.metric:
-                    total.append(If(v,1.0*sum(self.final_costs[a]),0.0))
+                    total.append(If(v, 1.0 * sum(self.final_costs[a]), 0.0))
                 else:
-                    total.append(If(v,1.0,0.0))
+                    total.append(If(v, 1.0, 0.0))
             constraints.append(cost == sum(total))
             costs.append(cost)
 
@@ -1034,13 +1486,12 @@ class EncoderOMT(Encoder):
         """
 
         # ASAP constraint are enforced both for concrete and relaxed actions
-        all_actions  = self.action_variables.copy()
+        all_actions = self.action_variables.copy()
         all_actions.update(self.auxiliary_actions)
-
 
         c = []
 
-        for step in range(self.horizon+1):
+        for step in range(self.horizon + 1):
             for action in self.actions:
                 # Condition 1: action already executed at
                 # previous step
@@ -1059,29 +1510,27 @@ class EncoderOMT(Encoder):
                             violated.append(Not(self.boolean_variables[step][var_name]))
 
                     elif isinstance(pre, pddl.conditions.FunctionComparison):
-                        expr = utils.inorderTraversalFC(self,pre,self.numeric_variables[step])
+                        expr = utils.inorderTraversalFC(self, pre, self.numeric_variables[step])
                         violated.append(Not(expr))
 
                     else:
-                        raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre,type(pre)))
-
+                        raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre, type(pre)))
 
                 # Condition 3: a mutex was executed a previous step
 
                 # return all actions that are in mutex with the
                 # current action
-                mutex = [(lambda t:  t[1] if t[0] == action else t[0])(t) for t in self.mutexes if action in t]
+                mutex = [(lambda t: t[1] if t[0] == action else t[0])(t) for t in self.mutexes if action in t]
                 # fetch action variable
                 mutex_vars = [all_actions[step][a.name] for a in mutex]
 
                 # ASAP constraint
 
-                act_post = all_actions[step+1][action.name]
+                act_post = all_actions[step + 1][action.name]
 
-                c.append(Implies(act_post, Or( act_pre, Or(violated), Or(mutex_vars))))
+                c.append(Implies(act_post, Or(act_pre, Or(violated), Or(mutex_vars))))
 
         return c
-
 
     def encodeOnlyIfNeeded(self):
         """!
@@ -1093,7 +1542,7 @@ class EncoderOMT(Encoder):
 
         c = []
 
-        for step in range(self.horizon,self.horizon+2):
+        for step in range(self.horizon, self.horizon + 2):
             rel_a = self.auxiliary_actions[step].values()
             actions = []
             for index in range(self.horizon):
@@ -1102,9 +1551,7 @@ class EncoderOMT(Encoder):
 
         return c
 
-
-
-    def encode(self,horizon):
+    def encode(self, horizon):
         """!
         Builds OMT encoding.
 
@@ -1171,7 +1618,7 @@ class EncoderOMT(Encoder):
 
         abstract_goal = self.encodeRelaxedGoal()
 
-        formula['goal'] = Or(goal,abstract_goal)
+        formula['goal'] = Or(goal, abstract_goal)
 
         # Encode loop formula
 
