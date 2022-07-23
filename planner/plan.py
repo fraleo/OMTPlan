@@ -320,7 +320,8 @@ class MRPlan(Plan):
         # first we still use general constraints
         # For now, general failure constraints work better than task plan eliminate constraints
         # since it can find plans faster, although it has lower success rate.
-        constraints = self.general_failure_constraints_naive(model, encoder, plan, failed_step)
+        # constraints = self.general_failure_constraints_naive(model, encoder, plan, failed_step)
+        constraints = []
         # constraints = self.task_plan_eliminate_constraints(model, encoder, plan, failed_step)
         # we then encode constraints in the failure info
         pre_mutexed_action_pairs, manip_mutexed_action_pairs, pre_never_actions, manip_never_actions, \
