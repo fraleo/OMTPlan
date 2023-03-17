@@ -76,10 +76,14 @@ class SearchSMT(Search):
                 # Increment horizon until we find a solution
                 self.horizon = self.horizon + 1
 
-        # Extract plan from model
-        model = self.solver.model()
-        self.solution = plan.Plan(model, self.encoder)
 
+        if self.found:
+            # Extract plan from model
+            model = self.solver.model()
+            self.solution = plan.Plan(model, self.encoder)
+        else:
+            print('Problem not solvable')
+            
         return self.solution
 
 
