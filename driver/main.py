@@ -163,7 +163,7 @@ def main(BASE_DIR):
                 print('Plan not valid, exiting now...')
                 sys.exit()
         except:
-            print('\nPlan could not be validated')
+            print('\nNo plan found.')
             if plan is not None:
                 print('\nCost: {}\n'.format(plan.cost))
                 for k,v in plan.plan.items():
