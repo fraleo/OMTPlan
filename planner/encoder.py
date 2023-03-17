@@ -103,8 +103,6 @@ class Encoder():
                 if not a1.name == a2.name:
                             mutexes.append((a1,a2))
 
-        mutexes = set(tuple(sorted(t)) for t in mutexes)
-
         return mutexes
 
     def _computeParallelMutexes(self):
@@ -144,6 +142,7 @@ class Encoder():
                     # Fetch all propositional fluents involved in effects of a2
                     add_a2 = set([add[1] for add in a2.add_effects])
                     del_a2 = set([de[1] for de in a2.del_effects])
+                    
                     # fetch all numeric fluents involved in effects of a2
                     # need to remove auxiliary fluents added by TFD parser
                     num_a2 = set([ne[1].fluent for ne in a2.assign_effects]).union(set([ne[1].expression for ne in a2.assign_effects if not ne[1].expression.symbol.startswith('derived!') ]))
@@ -151,10 +150,10 @@ class Encoder():
                     # Condition 1
 
                     # for propositional variables
-                    if any(el in add_a2 for el in a1.condition):
+                    if any(el.negate() in add_a2 for el in a1.condition):
                             mutexes.append((a1,a2))
 
-                    if any(el in del_a2 for el in a1.condition):
+                    if any(el.negate() in del_a2 for el in a1.condition):
                             mutexes.append((a1,a2))
 
                     ## for numeric variables
@@ -188,9 +187,6 @@ class Encoder():
                     ## Condition 3
                     if num_a1 & num_a2:
                             mutexes.append((a1,a2))
-
-
-        mutexes = set(tuple(sorted(t)) for t in mutexes)
 
         return mutexes
 
