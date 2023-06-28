@@ -77,7 +77,20 @@ Do not hesitate to contact me if you have problems using OMTPlan, or if you find
 
 ## Citing OMTPlan
 
-If you decide to use OMTPlan for your experiments, please cite
+If you decide to use OMTPlan for your experiments, please cite:
+
+	@article{Leofante23,
+	  author       = {Francesco Leofante},
+	  title        = {OMTPlan: A Tool for Optimal Planning Modulo Theories },
+	  journal      = {J. Satisf. Boolean Model. Comput.},
+	  volume       = {14},
+	  number       = {1},
+	  pages        = {17--23},
+	  year         = {2023},
+	  doi          = {10.3233/SAT-220001}
+	}
+
+and 
 
 	@inproceedings{LeofanteGAT20,
 	  author    = {Francesco Leofante and
