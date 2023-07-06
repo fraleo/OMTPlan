@@ -17,12 +17,17 @@
 
 from z3 import *
 from collections import defaultdict
-import translate.pddl as pddl
+
+from unified_planning.shortcuts import *
+from unified_planning.engines import CompilationKind
+
+# import translate.pddl as pddl
+# from translate import instantiate
+# from translate import numeric_axiom_rules
+
 import utils
-from translate import instantiate
-from translate import numeric_axiom_rules
 import numpy as np
-import loopformula
+from . import loopformula
 
 
 
@@ -52,9 +57,18 @@ class Encoder():
             self.mutexes = self._computeParallelMutexes()
 
     def _ground(self):
-        """
-        Grounds action schemas as per TFD parser)
-        """
+
+        with Compiler(problem_kind=self.task.kind, compilation_kind=CompilationKind.GROUNDING) as grounder:
+            grounding_result = grounder.compile(self.task, CompilationKind.GROUNDING)
+            ground_problem = grounding_result.problem
+            print(ground_problem)
+            print(type(ground_problem))
+        exit()
+        return ground_problem.fluents, ground_problem.actions
+
+        # """
+        # Grounds action schemas as per TFD parser)
+        # """
 
         (relaxed_reachable, boolean_fluents, numeric_fluents, actions,
         durative_actions, axioms, numeric_axioms,

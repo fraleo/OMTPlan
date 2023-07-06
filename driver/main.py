@@ -26,6 +26,7 @@ import utils
 from planner import encoder
 from planner import modifier
 from planner import search
+from unified_planning.io import PDDLReader
 
 val_path = '/bin/validate'
 
@@ -41,13 +42,13 @@ def main(BASE_DIR):
 
     # Run PDDL translator (from TFD)
     prb = args.problem
+    reader = PDDLReader()
     if args.domain:
         domain = args.domain
-        task = translate.pddl.open(prb, domain)
+        task = reader.parse_problem(domain, prb) #translate.pddl.open(prb, domain)
     else:
-        task = translate.pddl.open(prb)
+        task = reader.parse_problem(domain, prb) #translate.pddl.open(prb)
         domain = utils.getDomainName(prb)
-
 
     # Fetch upper bound for bounded search
     

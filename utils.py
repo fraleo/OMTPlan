@@ -17,10 +17,17 @@
 ##    You should have received a copy of the GNU General Public License
 ##    along with OMTPlan.  If not, see <https://www.gnu.org/licenses/>.
 ############################################################################
-
+import os
+import re
 from z3 import *
-import translate.pddl as pddl
+# import translate.pddl as pddl
 
+import unified_planning
+
+try:
+    basestring
+except NameError:
+    basestring = str
 
 def getDomainName(task_filename):
     """!
@@ -255,7 +262,7 @@ def inorderTraversalFC(encoder,condition, numeric_variables):
 
 
         if condition.parts[1] in encoder.numeric_fluents and not condition.parts[1].symbol.startswith('derived!'):
-            var_name = utils.varNameFromNFluent(condition.parts[1])
+            var_name = varNameFromNFluent(condition.parts[1])
             r_expr = numeric_variables[var_name]
         else:
             r_expr = inorderTraversal(encoder,encoder.axioms_by_name[condition.parts[1]],numeric_variables)
