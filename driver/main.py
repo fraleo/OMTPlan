@@ -41,108 +41,47 @@ def main(BASE_DIR):
     # Parse planner args
     args = arguments.parse_args()
 
-
-    # Run PDDL translator (from TFD)
-    prb = args.problem
+    # Parse PDDL problem
     reader = PDDLReader()
-    if args.domain:
-        domain = args.domain
-        task = reader.parse_problem(domain, prb) #translate.pddl.open(prb, domain)
-    else:
-        task = reader.parse_problem(domain, prb) #translate.pddl.open(prb)
-        domain = utils.getDomainName(prb)
-
-    # Fetch upper bound for bounded search
-    
-    ub = args.b
+    task = reader.parse_problem(args.domain, args.problem)
     
     # Compose encoder and search
     # according to user flags
+    if not args.parallel and not args.linear:
+        print('No execution semantics specified, choose between linear or parallel.')
+        print('Exiting now...')
+        sys.exit()
 
     if args.smt:
-
-        if args.linear:
-
-            e = encoder.EncoderSMT(task, modifier.LinearModifier())
-
-            # Build SMT-LIB encoding and dump (no solving)
-            if args.translate:
-               formula = e.encode(args.translate)
-
-               # Print SMT planning formula (linear) to file
-               utils.printSMTFormula(formula,task.name)
-
-            else:
-
-                # Ramp-up search for optimal planning with unit costs
-                s = search.SearchSMT(e,ub)
-                plan = s.do_linear_search()
-
-        elif args.parallel:
+        
+        if args.parallel:
             print('\nWarning: optimal planning not supported for this configuration')
             print('Continue with satisficing planning...\n')
+        
+        e = encoder.EncoderSMT(task, modifier.LinearModifier() if args.linear else modifier.ParallelModifier())
 
-            # Parallel encodings, no optimal reasoning here!
-
-            e = encoder.EncoderSMT(task, modifier.ParallelModifier())
-
-            # Build SMT-LIB encoding and dump (no solving)
-            if args.translate:
-                formula = e.encode(args.translate)
-
-                # Print SMT planning formula (parallel) to file
-                utils.printSMTFormula(formula,task.name)
-            else:
-                s = search.SearchSMT(e,ub)
-                plan = s.do_linear_search()
-
+        # Build SMT-LIB encoding and dump (no solving)
+        if args.translate:
+            formula = e.encode(args.translate)
+            # Print SMT planning formula (linear) to file
+            utils.printSMTFormula(formula,task.name)
         else:
-            print('No execution semantics specified, choose between linear or parallel.')
-            print('Exiting now...')
-            sys.exit()
+            # Ramp-up search for optimal planning with unit costs
+            s = search.SearchSMT(e, args.b)
+            plan = s.do_linear_search()
 
     elif args.omt:
 
-        if args.linear:
-
-            e = encoder.EncoderOMT(task, modifier.LinearModifier())
-
-            # Build SMT-LIB encoding and dump (no solving)
-            if args.translate:
-                
-                formula = e.encode(args.translate)
-
-                # Print OMT planning formula (linear) to file
-
-                utils.printOMTFormula(formula,task.task_name)
-                
-            else:
-                s = search.SearchOMT(e,ub)
-                plan = s.do_search()
-
-        elif args.parallel:
-            e = encoder.EncoderOMT(task, modifier.ParallelModifier())
-
-            # Build SMT-LIB encoding and dump (no solving)
-            if args.translate:
-                
-                formula = e.encode(args.translate)
-
-                # Print OMT planning formula (parallel) to file
-
-                utils.printOMTFormula(formula,task.task_name)
-                
-            else:
-                s = search.SearchOMT(e,ub)
-                plan = s.do_search()
-
-
-        else:
-            print('No execution semantics specified, choose between linear or parallel.')
-            print('Exiting now...')
-            sys.exit()
-
+        e = encoder.EncoderOMT(task, modifier.LinearModifier() if args.linear else modifier.ParallelModifier())
         
+        # Build SMT-LIB encoding and dump (no solving)
+        if args.translate:
+            formula = e.encode(args.translate)
+            # Print OMT planning formula (linear) to file
+            utils.printOMTFormula(formula,task.task_name)            
+        else:
+            s = search.SearchOMT(e, args.b)
+            plan = s.do_search()        
     else:
         print('No solving technique specified, choose between SMT or OMT.')
         print('Exiting now...')
