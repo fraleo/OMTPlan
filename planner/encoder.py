@@ -27,8 +27,6 @@ import utils
 import numpy as np
 from . import loopformula
 
-
-
 class Encoder:
     def __init__(self, task, modifier):
         self.task = task
@@ -392,7 +390,7 @@ class Encoder:
 
             @return axioms that specify execution semantics.
             """
-
+            
             try:
                 return self.modifier.do_encode(self.action_variables, self.horizon)
             except:
@@ -451,9 +449,8 @@ class Encoder:
         elif node.node_type == OperatorKind.EQUALS:
             operand_1 = self.get_expression(node.args[0], numeric_variables, horizon)
             operand_2 = self.get_expression(node.args[1], numeric_variables, horizon)
-            numeric_subgoals.append(operand_1 - operand_2 == 0)
+            numeric_subgoals.append(operand_1 - operand_2 == z3.Real('0'))
         return numeric_subgoals
-
 
 class EncoderSMT(Encoder):
     """
@@ -500,14 +497,10 @@ class EncoderSMT(Encoder):
 
         return formula
 
-
-
-
 class EncoderOMT(Encoder):
     """
     Class that defines method to build SMT encoding.
     """
-
     def encodeObjective(self):
         """!
         Encodes objective function. If domain is metric it builds a Z3 formula
@@ -556,7 +549,6 @@ class EncoderOMT(Encoder):
         for step in range(self.horizon,self.horizon+2):
             for action in self.actions:
                 self.auxiliary_actions[step][action.name] = Bool('{}_{}'.format(action.name,step))
-
 
     def encodeRelaxedActions(self):
         """!
@@ -650,7 +642,6 @@ class EncoderOMT(Encoder):
                     raise Exception('Numeric conditional effects not supported yet')
 
         return relax
-
 
     def encodeTransitiveClosure(self):
         """!
@@ -850,7 +841,7 @@ class EncoderOMT(Encoder):
                     for var_name in utils.extractVariablesFC(self,condition):
                         tvariables.append(self.touched_variables[var_name])
 
-                    numeric_subgoal.append(Or(expression, Or(tvariables)))
+                    numeric_subgoal.append(z3.Or(expression, z3.Or(tvariables)))
 
                 elif isinstance(condition, pddl.conditions.Conjunction):
 
@@ -871,7 +862,7 @@ class EncoderOMT(Encoder):
                             for var_name in utils.extractVariablesFC(self,part):
                                 tvariables.append(self.touched_variables[var_name])
 
-                            numeric_subgoal.append(Or(expression, Or(tvariables)))
+                            numeric_subgoal.append(z3.Or(expression, z3.Or(tvariables)))
 
                 else:
                     raise Exception('Numeric goal condition not recognized')
@@ -881,10 +872,9 @@ class EncoderOMT(Encoder):
         propositional_subgoal = _encodeRelPropositionalGoals()
         numeric_subgoal = _encodeRelNumericGoals()
 
-        rel_goal = And(And(propositional_subgoal),And(numeric_subgoal))
+        rel_goal = z3.And(z3.And(propositional_subgoal),z3.And(numeric_subgoal))
 
         return rel_goal
-
 
     def encodeAdditionalCosts(self):
         """!
@@ -900,17 +890,17 @@ class EncoderOMT(Encoder):
         constraints = []
 
         for step in range(self.horizon,self.horizon+2):
-            cost = Real('add_cost_{}'.format(step))
+            cost = z3.Real('add_cost_{}'.format(step))
             total = []
             for a,v in self.auxiliary_actions[step].items():
                 if self.task.metric:
-                    total.append(If(v,1.0*sum(self.final_costs[a]),0.0))
+                    total.append(z3.If(v,1.0*sum(self.final_costs[a]),0.0))
                 else:
-                    total.append(If(v,1.0,0.0))
+                    total.append(z3.If(v,1.0,0.0))
             constraints.append(cost == sum(total))
             costs.append(cost)
 
-        constraints = And(constraints)
+        constraints = z3.And(constraints)
 
         return sum(costs), constraints
 
@@ -944,11 +934,11 @@ class EncoderOMT(Encoder):
                         if pre.negated:
                             violated.append(self.boolean_variables[step][var_name])
                         else:
-                            violated.append(Not(self.boolean_variables[step][var_name]))
+                            violated.append(z3.Not(self.boolean_variables[step][var_name]))
 
                     elif isinstance(pre, pddl.conditions.FunctionComparison):
                         expr = utils.inorderTraversalFC(self,pre,self.numeric_variables[step])
-                        violated.append(Not(expr))
+                        violated.append(z3.Not(expr))
 
                     else:
                         raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre,type(pre)))
@@ -966,10 +956,9 @@ class EncoderOMT(Encoder):
 
                 act_post = all_actions[step+1][action.name]
 
-                c.append(Implies(act_post, Or( act_pre, Or(violated), Or(mutex_vars))))
+                c.append(z3.Implies(act_post, z3.Or( act_pre, z3.Or(violated), z3.Or(mutex_vars))))
 
         return c
-
 
     def encodeOnlyIfNeeded(self):
         """!
@@ -985,12 +974,10 @@ class EncoderOMT(Encoder):
             rel_a = self.auxiliary_actions[step].values()
             actions = []
             for index in range(self.horizon):
-                actions.append(Or(self.action_variables[index].values()))
-            c.append(Implies(Or(rel_a), And(actions)))
+                actions.append(z3.Or(self.action_variables[index].values()))
+            c.append(z3.Implies(z3.Or(rel_a), z3.And(actions)))
 
         return c
-
-
 
     def encode(self,horizon):
         """!

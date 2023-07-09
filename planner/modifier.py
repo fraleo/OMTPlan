@@ -48,7 +48,7 @@ class LinearModifier(Modifier):
 
         for step in range(bound):
             pbc = [(var,1) for var in variables[step].values()]
-            c.append(PbLe(pbc,1))
+            c.append(z3.PbLe(pbc,1))
 
         return c
 
@@ -71,6 +71,7 @@ class ParallelModifier(Modifier):
 
         for step in range(bound):
             for pair in mutexes:
-                c.append(Or(Not(variables[step][pair[0].name]),Not(variables[step][pair[1].name])))
+                #MF: TODO: Fix this to match the new variables.
+                c.append(z3.Or(z3.Not(variables[step][pair[0].name]), z3.Not(variables[step][pair[1].name])))
 
         return c
