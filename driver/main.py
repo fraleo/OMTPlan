@@ -26,7 +26,9 @@ import utils
 from planner import encoder
 from planner import modifier
 from planner import search
+
 from unified_planning.io import PDDLReader
+from unified_planning.shortcuts import *
 
 val_path = '/bin/validate'
 
@@ -154,29 +156,40 @@ def main(BASE_DIR):
 
     if not args.translate:
 
-        try:
-            if plan.validate(val, domain, prb):
-                print('\nPlan found!')
-                print('\nCost: {}\n'.format(plan.cost))
-                for k,v in plan.plan.items():
-                    print('Step {}: {}'.format(k, v))
-            else:
-                print('Plan not valid, exiting now...')
-                sys.exit()
-        except:
-            print('\nThe following plan could not be validated.')
-            if plan is not None:
-                print('\nCost: {}\n'.format(plan.cost))
-                for k,v in plan.plan.items():
-                    print('Step {}: {}'.format(k, v))
+        # TODO: Valdiate using unified planning
+        # with PlanValidator(problem_kind=task.kind, plan_kind=plan.plan.kind) as validator:
+        #     if validator.validate(task, plan.plan):
+        #         print('The plan is valid')
+        #     else:
+        #         print('The plan is invalid')
 
-        # Printing plan to file
+        print("Use unified planning to validate plan")
 
-        if args.pprint:
-            if len(plan.plan) == 0:
-                print('Warning: no plan found, nothing to print!')
-            else:
-                plan.pprint(BASE_DIR)
+        # TODO: Print plan using unified planning
+
+        # try:
+        #     if plan.validate(val, domain, prb):
+        #         print('\nPlan found!')
+        #         print('\nCost: {}\n'.format(plan.cost))
+        #         for k,v in plan.plan.items():
+        #             print('Step {}: {}'.format(k, v))
+        #     else:
+        #         print('Plan not valid, exiting now...')
+        #         sys.exit()
+        # except:
+        #     print('\nThe following plan could not be validated.')
+        #     if plan is not None:
+        #         print('\nCost: {}\n'.format(plan.cost))
+        #         for k,v in plan.plan.items():
+        #             print('Step {}: {}'.format(k, v))
+
+        # # Printing plan to file
+
+        # if args.pprint:
+        #     if len(plan.plan) == 0:
+        #         print('Warning: no plan found, nothing to print!')
+        #     else:
+        #         plan.pprint(BASE_DIR)
 
  
 if __name__ == '__main__':

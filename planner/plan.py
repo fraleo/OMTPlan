@@ -15,9 +15,14 @@
 ##    along with OMTPlan.  If not, see <https://www.gnu.org/licenses/>.
 ############################################################################
 
+import subprocess
+from copy import deepcopy
 
 from z3 import *
-import subprocess
+from unified_planning.shortcuts import *
+from unified_planning.plans import SequentialPlan
+from unified_planning.plans import ActionInstance
+
 
 
 
@@ -28,10 +33,11 @@ class Plan():
     """
 
     def __init__(self,model, encoder, objective=None):
-        self.plan = self._extractPlan(model, encoder)
+        self.encoder = deepcopy(encoder)
+        self.plan = self._extractPlan(model)
         self.cost = self._extractCost(objective)
 
-    def _extractPlan(self, model, encoder):
+    def _extractPlan(self, model):
         """!
         Extracts plan from model of the formula.
         Plan returned is linearized.
@@ -41,18 +47,17 @@ class Plan():
 
         @return  plan: dictionary containing plan. Keys are steps, values are actions.
         """
-        plan = {}
+        plan = []
         index = 0
 
         ## linearize partial-order plan
 
-        for step in range(encoder.horizon):
-            for action in encoder.actions:
-                if is_true(model[encoder.action_variables[step][action.name]]):
-                    plan[index] =  action.name
-                    index = index + 1
-
-        return plan
+        for step in range(self.encoder.horizon):
+            for action in self.encoder.actions:
+                if is_true(model[self.encoder.action_variables[step][action.name]]):
+                    plan.append(ActionInstance(action))
+                    
+        return SequentialPlan(plan)
 
 
     def _extractCost(self, objective=None):
@@ -67,7 +72,7 @@ class Plan():
         if objective:
             cost = objective.value()
         else:
-            cost = len(self.plan)
+            cost = len(self.plan.actions)
 
         return cost
 

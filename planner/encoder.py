@@ -17,8 +17,8 @@
 
 from z3 import *
 from collections import defaultdict
+from copy import deepcopy
 
-from unified_planning.io import PDDLReader
 from unified_planning.shortcuts import *
 from unified_planning.engines import CompilationKind
 from unified_planning.model.operators import *
@@ -36,6 +36,7 @@ class Encoder:
 
         self.ground_problem = self._ground()
         
+        self.actions = deepcopy(self.ground_problem.actions)
 
         self.boolean_variables = defaultdict(dict)
         self.numeric_variables = defaultdict(dict)
