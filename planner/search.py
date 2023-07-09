@@ -130,7 +130,7 @@ class SearchOMT(Search):
             self.solver = Optimize()
 
             # Build planning subformulas
-            formula = self.encoder.encode(horizon)
+            formula = self.encoder.encode(int(horizon))
 
             # Assert subformulas in solver
             for label, sub_formula in formula.items():
