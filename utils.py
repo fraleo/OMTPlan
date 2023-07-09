@@ -20,6 +20,7 @@
 import os
 import re
 from z3 import *
+from unified_planning.model.operators import *
 # import translate.pddl as pddl
 
 import unified_planning
@@ -75,7 +76,6 @@ def getValFromModel(assignment):
     else:
         raise Exception('Unknown type for assignment')
 
-
 def varNameFromNFluent(fluent):
     """!
         Returns variable name used for encoding
@@ -105,7 +105,6 @@ def varNameFromBFluent(fluent):
         return fluent.predicate
     return '{}_{}'.format(fluent.predicate,  '_'.join(args))
 
-
 def isBoolFluent(fluent):
     """!
     Checks if fluent is propositional.
@@ -113,11 +112,7 @@ def isBoolFluent(fluent):
     @param fluent: PDDL fluent.
     @return Truth value.
     """
-
-    if isinstance(fluent, (pddl.conditions.Atom, pddl.conditions.NegatedAtom)):
-        return True
-    else:
-        return False
+    return fluent.node_type in [OperatorKind.NOT, OperatorKind.FLUENT_EXP]
 
 def isNumFluent(fluent):
     """!
@@ -126,12 +121,9 @@ def isNumFluent(fluent):
     @param fluent: PDDL fluent.
     @return Truth value.
     """
-    if isinstance(fluent, (pddl.f_expression.FunctionalExpression, pddl.f_expression.FunctionAssignment)):
-        return True
-    else:
-        return False
+    return fluent.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]
 
-
+# TODO: We need to fix this.
 def inorderTraversal(encoder,nax, numeric_variables):
         """!
         Traverses the parsed domain as returned by TFD parser:
@@ -231,7 +223,7 @@ def inorderTraversal(encoder,nax, numeric_variables):
                 return l_expr / r_expr
             else:
                 raise Exception('Operator not recognized')
-
+# TODO: We need to fix this.
 def inorderTraversalFC(encoder,condition, numeric_variables):
         """!
             Inorder traversal for Comparison axioms -- see "Using the Context-enhanced Additive Heuristic for Temporal and Numeric Planning", Eyerich et al.

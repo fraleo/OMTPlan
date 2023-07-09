@@ -166,6 +166,11 @@ class Encoder:
             for fluent in boolean_fluents:
                 self.boolean_variables[step][fluent.name] = z3.Bool('{}_{}'.format(fluent.name,step))
 
+        for f in self.ground_problem.fluents:
+            print(dir(f))
+            
+
+        const_fluents = [f for f in self.ground_problem.fluents if f.is_int_constant()]
         
         # MF: I hate this but the only way to get the function and its variable through parsing the initial values for the 
         # numeric fluents.

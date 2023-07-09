@@ -132,35 +132,55 @@
  (let (($x107 (= cost_d2_1 (+ cost_d2_0 |2|))))
  (=> authorize_d2_l2_0 $x107)))
 (assert
- (=> (and (not clear_d1_l1_0) clear_d1_l1_1) (or authorize_all_d1_0 authorize_d1_l1_0)))
+ (let (($x50 (not clear_d1_l1_0)))
+ (let (($x119 (and $x50 clear_d1_l1_1)))
+ (=> $x119 (or authorize_all_d1_0 authorize_d1_l1_0)))))
 (assert
- (=> (and clear_d1_l1_0 (not clear_d1_l1_1)) (or authorize_d1_l2_0)))
+ (let (($x87 (not clear_d1_l1_1)))
+ (let (($x122 (and clear_d1_l1_0 $x87)))
+ (=> $x122 (or authorize_d1_l2_0)))))
 (assert
- (=> (and (not clear_d1_l2_0) clear_d1_l2_1) (or authorize_all_d1_0 authorize_d1_l2_0)))
+ (let (($x51 (not clear_d1_l2_0)))
+ (let (($x125 (and $x51 clear_d1_l2_1)))
+ (=> $x125 (or authorize_all_d1_0 authorize_d1_l2_0)))))
 (assert
- (=> (and clear_d1_l2_0 (not clear_d1_l2_1)) or))
+ (let (($x129 (and clear_d1_l2_0 (not clear_d1_l2_1))))
+ (=> $x129 or)))
 (assert
- (=> (and (not clear_d2_l1_0) clear_d2_l1_1) (or authorize_all_d2_0 authorize_d2_l1_0)))
+ (let (($x52 (not clear_d2_l1_0)))
+ (let (($x132 (and $x52 clear_d2_l1_1)))
+ (=> $x132 (or authorize_all_d2_0 authorize_d2_l1_0)))))
 (assert
- (=> (and clear_d2_l1_0 (not clear_d2_l1_1)) (or authorize_d2_l2_0)))
+ (let (($x116 (not clear_d2_l1_1)))
+ (let (($x135 (and clear_d2_l1_0 $x116)))
+ (=> $x135 (or authorize_d2_l2_0)))))
 (assert
- (=> (and (not clear_d2_l2_0) clear_d2_l2_1) (or authorize_all_d2_0 authorize_d2_l2_0)))
+ (let (($x53 (not clear_d2_l2_0)))
+ (let (($x138 (and $x53 clear_d2_l2_1)))
+ (=> $x138 (or authorize_all_d2_0 authorize_d2_l2_0)))))
 (assert
- (=> (and clear_d2_l2_0 (not clear_d2_l2_1)) or))
+ (let (($x142 (and clear_d2_l2_0 (not clear_d2_l2_1))))
+ (=> $x142 or)))
 (assert
  (let (($x145 (or increase_priority_d1_0 authorize_all_d1_0 authorize_d1_l1_0 authorize_d1_l2_0)))
- (or (= cost_d1_1 cost_d1_0) $x145)))
+ (let (($x144 (= cost_d1_1 cost_d1_0)))
+ (or $x144 $x145))))
 (assert
- (or (= priority_d1_1 priority_d1_0) (or increase_priority_d1_0)))
+ (let (($x147 (= priority_d1_1 priority_d1_0)))
+ (or $x147 (or increase_priority_d1_0))))
 (assert
- (or (= high_1 high_0) or))
+ (let (($x150 (= high_1 high_0)))
+ (or $x150 or)))
 (assert
- (or (= low_1 low_0) or))
+ (let (($x152 (= low_1 low_0)))
+ (or $x152 or)))
 (assert
  (let (($x155 (or increase_priority_d2_0 authorize_all_d2_0 authorize_d2_l1_0 authorize_d2_l2_0)))
- (or (= cost_d2_1 cost_d2_0) $x155)))
+ (let (($x154 (= cost_d2_1 cost_d2_0)))
+ (or $x154 $x155))))
 (assert
- (or (= priority_d2_1 priority_d2_0) (or increase_priority_d2_0)))
+ (let (($x157 (= priority_d2_1 priority_d2_0)))
+ (or $x157 (or increase_priority_d2_0))))
 (assert
  ((_ at-most 1) increase_priority_d1_0 authorize_all_d1_0 authorize_d1_l1_0 authorize_d1_l2_0 increase_priority_d2_0 authorize_all_d2_0 authorize_d2_l1_0 authorize_d2_l2_0))
 (check-sat)

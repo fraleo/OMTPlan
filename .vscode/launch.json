@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/omtplan.py",
-            "args" : ["-linear", "-smt", "-parallel", "-domain", "${workspaceFolder}/pddl_examples/sec_clearance_sdac/sec_clear_2_2-linear/domain.pddl", "${workspaceFolder}/pddl_examples/sec_clearance_sdac/sec_clear_2_2-linear/instances/prob_2_2.pddl"],
+            "args" : ["-linear", "-smt", "-translate", "1", "-parallel", "-domain", "${workspaceFolder}/pddl_examples/sec_clearance_sdac/sec_clear_2_2-linear/domain.pddl", "${workspaceFolder}/pddl_examples/sec_clearance_sdac/sec_clear_2_2-linear/instances/prob_2_2.pddl"],
             "console": "integratedTerminal",
             "justMyCode": true
         }
