@@ -20,7 +20,7 @@
 
 import sys
 from . import arguments
-import translate
+
 import subprocess
 import utils
 from planner import encoder
@@ -68,7 +68,7 @@ def main(BASE_DIR):
                formula = e.encode(args.translate)
 
                # Print SMT planning formula (linear) to file
-               utils.printSMTFormula(formula,task.task_name)
+               utils.printSMTFormula(formula,task.name)
 
             else:
 
@@ -89,7 +89,7 @@ def main(BASE_DIR):
                 formula = e.encode(args.translate)
 
                 # Print SMT planning formula (parallel) to file
-                utils.printSMTFormula(formula,task.task_name)
+                utils.printSMTFormula(formula,task.name)
             else:
                 s = search.SearchSMT(e,ub)
                 plan = s.do_linear_search()

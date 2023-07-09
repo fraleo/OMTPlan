@@ -18,12 +18,10 @@
 from z3 import *
 from collections import defaultdict
 
+from unified_planning.io import PDDLReader
 from unified_planning.shortcuts import *
 from unified_planning.engines import CompilationKind
-
-# import translate.pddl as pddl
-# from translate import instantiate
-# from translate import numeric_axiom_rules
+from unified_planning.model.operators import *
 
 import utils
 import numpy as np
@@ -31,76 +29,31 @@ from . import loopformula
 
 
 
-class Encoder():
-    """
-    Base encoder class. Defines methods to build standard
-    state-based encodings -- i.e., Rintanen 09
-    """
-
+class Encoder:
     def __init__(self, task, modifier):
         self.task = task
         self.modifier = modifier
 
-        (self.boolean_fluents,
-         self.actions,
-         self.numeric_fluents,
-         self.axioms,
-         self.numeric_axioms) = self._ground()
+        self.ground_problem = self._ground()
+        
 
-        (self.axioms_by_name,
-         self.depends_on,
-         self.axioms_by_layer) = self._sort_axioms()
+        self.boolean_variables = defaultdict(dict)
+        self.numeric_variables = defaultdict(dict)
+        self.action_variables  = defaultdict(dict)
+
+        self.all_problem_fluents = []
 
         if self.modifier.__class__.__name__ == "LinearModifier":
             self.mutexes = self._computeSerialMutexes()
         else:
             self.mutexes = self._computeParallelMutexes()
-
+        
     def _ground(self):
+        # Ground the task.
 
         with Compiler(problem_kind=self.task.kind, compilation_kind=CompilationKind.GROUNDING) as grounder:
-            grounding_result = grounder.compile(self.task, CompilationKind.GROUNDING)
-            ground_problem = grounding_result.problem
-            print(ground_problem)
-            print(type(ground_problem))
-        exit()
-        return ground_problem.fluents, ground_problem.actions
-
-        # """
-        # Grounds action schemas as per TFD parser)
-        # """
-
-        (relaxed_reachable, boolean_fluents, numeric_fluents, actions,
-        durative_actions, axioms, numeric_axioms,
-        reachable_action_params) = instantiate.explore(self.task)
-
-        return boolean_fluents, actions, numeric_fluents, axioms, numeric_axioms
-
-    def _sort_axioms(self):
-        """!
-        Stores numeric axioms sorted according to different criteria.
-
-        Returns 3 dictionaries:
-
-        @return axioms_by_name: numeric axioms sorted by name
-        @return depends_on: dependencies between axioms
-        @return axioms_by_layer: axioms sorted by layer (see "Using the Context-enhanced Additive Heuristic for Temporal and Numeric Planning.", Eyerich et al.)
-        """
-
-        axioms_by_name = {}
-        for nax in self.numeric_axioms:
-            axioms_by_name[nax.effect] = nax
-
-        depends_on = defaultdict(list)
-        for nax in self.numeric_axioms:
-            for part in nax.parts:
-                depends_on[nax].append(part)
-
-        axioms_by_layer, _,_,_ = numeric_axiom_rules.handle_axioms(self.numeric_axioms)
-
-        return axioms_by_name, depends_on, axioms_by_layer
-
-
+            return grounder.compile(self.task, compilation_kind=CompilationKind.GROUNDING).problem
+    
     def _computeSerialMutexes(self):
         """!
         Computes mutually exclusive actions for serial encodings,
@@ -111,12 +64,11 @@ class Encoder():
         # Stores mutexes
         mutexes = []
 
-        for a1 in self.actions:
-            for a2 in self.actions:
+        for a1 in self.ground_problem.actions:
+            for a2 in self.ground_problem.actions:
                 # Skip same action
                 if not a1.name == a2.name:
-                            mutexes.append((a1,a2))
-
+                    mutexes.append((a1,a2))
         return mutexes
 
     def _computeParallelMutexes(self):
@@ -131,79 +83,75 @@ class Encoder():
 
         @return mutex: list of tuples defining action mutexes
         """
-        # Stores mutexes
-        mutexes = []
 
-        for a1 in self.actions:
-            # Fetch all propositional fluents involved in effects of a1
-            add_a1 = set([add[1] for add in a1.add_effects])
-            del_a1 = set([de[1] for de in a1.del_effects])
-            # fetch all numeric fluents involved in effects of a2
-            # need to remove auxiliary fluents added by TFD parser
-            num_a1 = set([ne[1].fluent for ne in a1.assign_effects]).union(set([ne[1].expression for ne in a1.assign_effects if not ne[1].expression.symbol.startswith('derived!') ]))
+        def get_add_del_effects(action):
+            """!
+            Returns a tuple (add, del) of lists of effects of the action
+            """
+            
+            del_effects = []
+            effects_fluents = [effect for effect in action.effects if effect.value.type.is_bool_type()]
 
-            # Variables in numeric preconditions of a1
-            variables_pre = []
-            for pre in a1.condition:
-                if isinstance(pre,pddl.conditions.FunctionComparison):
-                    variables_pre.append(utils.extractVariablesFC(self,pre))
+            add_effects = set([str(eff.fluent) for eff in effects_fluents if eff.value.is_true()])
+            del_effects = set([str(eff.fluent) for eff in effects_fluents if not eff.value.is_true()])
 
-            variables_pre = set([item for sublist in variables_pre for item in sublist])
+            return (add_effects, del_effects)
+        
+        def get_numeric_effects(action):
+            """!
+            Returns a set of numeric effects of the action
+            """            
+            return set([str(effect.fluent) for effect in action.effects if effect.value.type.is_int_type() or effect.value.type.is_real_type()])
 
-            for a2 in self.actions:
-                # Skip same action
-                if not a1.name == a2.name:
-                    # Fetch all propositional fluents involved in effects of a2
-                    add_a2 = set([add[1] for add in a2.add_effects])
-                    del_a2 = set([de[1] for de in a2.del_effects])
-                    
-                    # fetch all numeric fluents involved in effects of a2
-                    # need to remove auxiliary fluents added by TFD parser
-                    num_a2 = set([ne[1].fluent for ne in a2.assign_effects]).union(set([ne[1].expression for ne in a2.assign_effects if not ne[1].expression.symbol.startswith('derived!') ]))
+        def get_preconditions(action):
+            """!
+            Returns a set of preconditions of the action
+            """            
+            preconditions = set()
+            for pre in action.preconditions:
+                for arg in pre.args:
+                    if arg.node_type == OperatorKind.FLUENT_EXP:
+                        preconditions.add(str(arg))
+            return preconditions
 
-                    # Condition 1
+        mutexes = set()
+        
+        for action_1 in self.ground_problem.actions:
+            add_a1, del_a1 = get_add_del_effects(action_1)
+            num_1 = get_numeric_effects(action_1)
+            pre_1 = get_preconditions(action_1)
 
-                    # for propositional variables
-                    if any(el.negate() in add_a2 for el in a1.condition):
-                            mutexes.append((a1,a2))
+            for action_2 in self.ground_problem.actions:
+                if not action_1.name == action_2.name:
+                  
+                    if action_1.name == 'authorize_d1_l1' and action_2.name == 'authorize_d1_l2':
+                        print("debug")
 
-                    if any(el.negate() in del_a2 for el in a1.condition):
-                            mutexes.append((a1,a2))
+                    add_a2, del_a2 = get_add_del_effects(action_2)
+                    num_2 = get_numeric_effects(action_2)
+                    pre_2 = get_preconditions(action_2)
 
-                    ## for numeric variables
+                    ## Condition 1
+                    if len(pre_1.intersection(add_a2)) > 0 or len(pre_1.intersection(del_a2)) > 0:
+                        mutexes.add((action_1, action_2))
 
-                    variables_eff = []
-                    for ne in a2.assign_effects:
-                        if isinstance(ne[1],pddl.conditions.FunctionComparison):
-                            variables_eff.append(utils.extractVariablesFC(self,ne[1]))
-
-                        else:
-                            variables_eff.append(utils.varNameFromNFluent(ne[1].fluent))
-
-                            if ne[1].expression in self.numeric_fluents:
-                                variables_eff.append(utils.varNameFromNFluent(ne[1].expression))
-                            else:
-                                utils.extractVariables(self,self.axioms_by_name[ne[1].expression],variables_eff)
-
-                    variables_eff = set(variables_eff)
-
-                    if variables_pre &  variables_eff:
-                            mutexes.append((a1,a2))
-
+                    if len(pre_2.intersection(add_a1)) > 0 or len(pre_2.intersection(del_a1)) > 0:
+                        mutexes.add((action_1, action_2))
 
                     ## Condition 2
-                    if add_a1 & del_a2:
-                            mutexes.append((a1,a2))
-
-                    if add_a2 & del_a1:
-                            mutexes.append((a1,a2))
+                    if len(add_a1.intersection(del_a2)) > 0:
+                        mutexes.add((action_1, action_2))
+                    
+                    if len(add_a2.intersection(del_a1)) > 0:
+                        mutexes.add((action_1, action_2))
 
                     ## Condition 3
-                    if num_a1 & num_a2:
-                            mutexes.append((a1,a2))
+                    if num_1 & num_2:
+                        mutexes.add((action_1, action_2))
+
+                    pass
 
         return mutexes
-
 
     def createVariables(self):
         """!
@@ -213,40 +161,27 @@ class Encoder():
         dict[step][variable_name] = Z3 variable instance
 
         """
-
-        # Create boolean variables for boolean fluents
-        self.boolean_variables = defaultdict(dict)
+        
+        boolean_fluents = [f for f in self.ground_problem.fluents if f.type.is_bool_type()]
         for step in range(self.horizon+1):
-            # define SMT  variables only for predicates in the PDDL domain,
-            # do not consider new atoms added by the SAS+ translation
-            for fluent in self.boolean_fluents:
-                if isinstance(fluent.predicate,str) and fluent.predicate.startswith('defined!'):
-                    continue
-                elif isinstance(fluent.predicate,str) and fluent.predicate.startswith('new-'):
-                    continue
-                else:
-                    var_name = utils.varNameFromBFluent(fluent)
-                    self.boolean_variables[step][var_name] = Bool('{}_{}'.format(var_name,step))
+            for fluent in boolean_fluents:
+                self.boolean_variables[step][fluent.name] = z3.Bool('{}_{}'.format(fluent.name,step))
 
-
-        # Create arithmetic variables for numeric fluents
-        self.numeric_variables = defaultdict(dict)
+        
+        # MF: I hate this but the only way to get the function and its variable through parsing the initial values for the 
+        # numeric fluents.
+        numeric_fluents = [f for f in self.ground_problem.initial_values if f.type.is_int_type() or f.type.is_real_type()]
         for step in range(self.horizon+1):
-            for fluent in self.numeric_fluents:
-                # skip auxiliary fluents
-                if not fluent.symbol.startswith('derived!'):
-                    var_name = utils.varNameFromNFluent(fluent)
-                    self.numeric_variables[step][var_name] = Real('{}_{}'.format(var_name,step))
+            for fluent in numeric_fluents:
+                self.numeric_variables[step][str(fluent)] = z3.Real('{}_{}'.format(str(fluent),step))
 
+        
+        for step in range(self.horizon+1):
+            for action in self.ground_problem.actions:
+                self.action_variables[step][action.name] = z3.Bool('{}_{}'.format(action.name,step))
 
-
-
-        # Create propositional variables for actions
-        self.action_variables = defaultdict(dict)
-        for step in range(self.horizon):
-            for a in self.actions:
-                self.action_variables[step][a.name] = Bool('{}_{}'.format(a.name,step))
-
+        self.all_problem_fluents.extend(boolean_fluents)
+        self.all_problem_fluents.extend(numeric_fluents)
 
     def encodeInitialState(self):
         """!
@@ -257,52 +192,24 @@ class Encoder():
 
         initial = []
 
-        # Traverse initial facts
-        for fact in self.task.init:
-            # encode propositional fluents
-            if utils.isBoolFluent(fact):
-                if not fact.predicate == '=':
-                    if fact in self.boolean_fluents:
-                        var_name = utils.varNameFromBFluent(fact)
-                        initial.append(self.boolean_variables[0][var_name])
-            # encode numeric fluents
-            elif utils.isNumFluent(fact):
-                if fact.fluent in self.numeric_fluents:
-                    var_name = utils.varNameFromNFluent(fact.fluent)
-                    variable = self.numeric_variables[0][var_name]
-
-                    if fact.symbol == '=':
-                        initial.append(variable == fact.expression.value)
-                    elif fact.symbol == '<':
-                        initial.append(variable < fact.expression.value)
-                    elif fact.symbol == '<=':
-                        initial.append(variable <= fact.expression.value)
-                    elif fact.symbol == '>':
-                        initial.append(variable > fact.expression.value)
-                    elif fact.symbol == '>=':
-                        initial.append(variable >= fact.expression.value)
-                    else:
-                        raise Exception('Symbol not recognized in initial facts')
-
+        for fluent in self.ground_problem.initial_values:
+            
+            if fluent.type.is_bool_type():
+                if self.ground_problem.initial_values[fluent].is_true():
+                    initial.append(self.boolean_variables[0][str(fluent)])
                 else:
-                    # we skip initial facts that do not involve
-                    # numeric fluents (after compilation done by TFD)
-
-                    continue
-
+                    initial.append(z3.Not(self.boolean_variables[0][str(fluent)]))
+            elif fluent.type.is_int_type() or fluent.type.is_real_type():
+                fluent_name = str(fluent)
+                if fluent.node_type == OperatorKind.FLUENT_EXP:
+                   initial.append(self.numeric_variables[0][fluent_name] == self.ground_problem.initial_values[fluent])
+                else:
+                    #throw an error
+                    raise Exception("Fluent {} is not a fluent expression".format(fluent_name))
             else:
-                raise Exception('Initial condition \'{}\': type \'{}\' not recognized'.format(fact, type(fact)))
-
-
-        # Close-world assumption: facts not asserted in init formula
-        # are assumed to be false
-
-        for variable in self.boolean_variables[0].values():
-            if not variable in initial:
-                initial.append(Not(variable))
-
+                # we skip initial facts that do not involve numeric fluents
+                raise Exception("Fluent {} is not a boolean or numeric fluent".format(fluent_name))
         return initial
-
 
     def encodeGoalState(self):
         """!
@@ -310,185 +217,111 @@ class Encoder():
 
         @return goal: Z3 formula asserting propositional and numeric subgoals
         """
-
         def _encodePropositionalGoals(goal=None):
             """
             Encodes propositional subgoals.
             """
-
             propositional_subgoal = []
-
-            # UGLY HACK: we skip atomic propositions that are added
-            # to handle numeric axioms by checking names.
-            axiom_names = [axiom.name for axiom in self.task.axioms]
-
-            # Doing this as I mmight be calling this method
-            # if I find a propositional subgoal in numeric conditions
-            # see method below...
-
-            if goal is None:
-                goal = self.task.goal
-
-            # Check if goal is just a single atom
-            if isinstance(goal, pddl.conditions.Atom):
-                if not goal.predicate in axiom_names:
-                    if goal in self.boolean_fluents:
-                        var_name = utils.varNameFromBFluent(goal)
-                        if  goal.negated:
-                            propositional_subgoal.append(Not(self.boolean_variables[self.horizon][var_name]))
-                        else:
-                            propositional_subgoal.append(self.boolean_variables[self.horizon][var_name])
-
-            # Check if goal is a conjunction
-            elif isinstance(goal,pddl.conditions.Conjunction):
-                for fact in goal.parts:
-                    var_name = utils.varNameFromBFluent(fact)
-                    if  fact.negated:
-                        propositional_subgoal.append(Not(self.boolean_variables[self.horizon][var_name]))
-                    else:
-                        propositional_subgoal.append(self.boolean_variables[self.horizon][var_name])
-
-            else:
-                raise Exception('Propositional goal condition \'{}\': type \'{}\' not recognized'.format(goal, type(goal)))
-
+            for goal in self.ground_problem.goals:
+                if goal.node_type in [OperatorKind.NOT, OperatorKind.AND, OperatorKind.OR]:
+                    for arg in goal.args:
+                        if arg.node_type == OperatorKind.FLUENT_EXP:
+                            propositional_subgoal.append(self.boolean_variables[self.horizon][str(arg)])
+                        elif arg.node_type == OperatorKind.NOT:
+                            propositional_subgoal.append(z3.Not(self.boolean_variables[self.horizon][str(arg.args[0])]))
             return propositional_subgoal
+        
+        def _encodeNumericGoals(goal=None):
+            numeric_subgoals = []
+            for goal in self.ground_problem.goals:
+                if goal.node_type in [OperatorKind.AND, OperatorKind.OR]:
+                    operand_list = []
+                    for arg in goal.args:
+                        for ele in self.traverse_expression(arg, self.numeric_variables, self.horizon):
+                            operand_list.append(ele) 
 
+                    if goal.node_type == OperatorKind.AND:
+                        numeric_subgoals.append(z3.And(operand_list))
+                    elif goal.node_type == OperatorKind.OR:
+                        numeric_subgoals.append(z3.Or(operand_list))
+                    else:
+                        raise Exception("Unknown goal type {}".format(goal.node_type))
+            return numeric_subgoals
 
+        propositionalGoals = _encodePropositionalGoals()
+        numericGoals = _encodeNumericGoals()
 
-
-        def _encodeNumericGoals():
-            """
-            Encodes numeric subgoals.
-            """
-
-            numeric_subgoal = []
-
-            for axiom in self.task.axioms:
-                # Check if it's an atomic expression condition
-                condition = axiom.condition
-                if isinstance(condition, pddl.conditions.FunctionComparison):
-                    expression = utils.inorderTraversalFC(self, condition, self.numeric_variables[self.horizon])
-                    numeric_subgoal.append(expression)
-                elif isinstance(condition, pddl.conditions.Conjunction):
-                    # if instead we have a conjunction
-                    for part in condition.parts:
-                        ## Apparently boolean subgoal may still end up
-                        ## in numeric condition objects...
-                        if utils.isBoolFluent(part):
-                            propositional_subgoal = _encodePropositionalGoals(part)
-                            for sg in propositional_subgoal:
-                                numeric_subgoal.append(sg)
-                        if isinstance(part,pddl.conditions.FunctionComparison):
-                            expression = utils.inorderTraversalFC(self, part, self.numeric_variables[self.horizon])
-                            numeric_subgoal.append(expression)
-                else:
-                    raise Exception('Numeric goal condition not recognized')
-            return numeric_subgoal
-
-        # Build goal formulas
-        propositional_subgoal = _encodePropositionalGoals()
-        numeric_subgoal = _encodeNumericGoals()
-        goal = And(And(propositional_subgoal),And(numeric_subgoal))
-
-        return goal
-
+        return z3.And(z3.And(propositionalGoals), z3.And(numericGoals))
 
     def encodeActions(self):
-        """!
-        Encodes universal axioms: each action variable implies its preconditions and effects.
-
-        @return actions: z3 formulas encoding actions.
-
-        """
-
         actions = []
-
         for step in range(self.horizon):
-            for action in self.actions:
-
-                # Encode preconditions
-                for pre in action.condition:
-                    if utils.isBoolFluent(pre):
-                        var_name = utils.varNameFromBFluent(pre)
-                        if pre.negated:
-                            actions.append(Implies(self.action_variables[step][action.name],Not(self.boolean_variables[step][var_name])))
+            for action in self.ground_problem.actions:
+                # Append preconditions
+                for pre in action.preconditions:
+                    if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
+                        fluent_name = str(pre.args[0])
+                        if pre.node_type == OperatorKind.NOT:
+                            actions.append(z3.Implies(self.action_variables[step][action.name], z3.Not(self.boolean_variables[step][fluent_name])))
                         else:
-                            actions.append(Implies(self.action_variables[step][action.name],self.boolean_variables[step][var_name]))
-
-                    elif isinstance(pre, pddl.conditions.FunctionComparison):
-                        expr = utils.inorderTraversalFC(self,pre,self.numeric_variables[step])
-                        actions.append(Implies(self.action_variables[step][action.name],expr))
-
-                    else:
-                        raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre,type(pre)))
-
-                # Encode add effects
-                for add in action.add_effects:
-                    # Check if effect is conditional
-                    if len(add[0]) == 0:
-                        actions.append(Implies(self.action_variables[step][action.name],self.boolean_variables[step+1][utils.varNameFromBFluent(add[1])]))
-                    else:
-                        raise Exception(' Action {} contains add effect not supported'.format(action.name))
-
-
-                # Encode delete effects
-                for de in action.del_effects:
-                    # Check if effect is conditional
-                    if len(de[0]) == 0:
-                        actions.append(Implies(self.action_variables[step][action.name],Not(self.boolean_variables[step+1][utils.varNameFromBFluent(de[1])])))
-                    else:
-                        raise Exception(' Action {} contains del effect not supported'.format(action.name))
-
-                # Encode numeric effects
-                for ne in action.assign_effects:
-                    # Check if conditional
-                    if len(ne[0]) == 0:
-                        ne = ne[1]
-                        if isinstance(ne, pddl.f_expression.FunctionAssignment):
-                            # Num eff that are instance of this class are defined
-                            # by the following PDDL keywords: assign, increase, decrease,
-                            # scale-up, scale-down
-
-                            # Numeric effects have fluents on the left and either a const, a fluent
-                            # or a complex numeric expression on the right
-
-                            # Handle left side
-                            # retrieve variable name
-                            var_name = utils.varNameFromNFluent(ne.fluent)
-
-                            this_step_variable = self.numeric_variables[step][var_name]
-                            next_step_variable = self.numeric_variables[step+1][var_name]
-
-                            # Handle right side
-
-                            if ne.expression in self.numeric_fluents and not ne.expression.symbol.startswith('derived!'): #don't consider variables added by TFD
-                                # right side is a simple fluent
-                                var_name = utils.varNameFromNFluent(ne.expression)
-                                expr = self.numeric_variables[step][var_name]
+                            actions.append(z3.Implies(self.action_variables[step][action.name], self.boolean_variables[step][fluent_name]))
+                    
+                    elif pre.node_type in IRA_RELATIONS:
+                        for cond in self.traverse_expression(pre, self.numeric_variables, step):
+                            actions.append(z3.Implies(self.action_variables[step][action.name], cond))
+                    
+                    elif pre.node_type in [OperatorKind.AND, OperatorKind.OR]:
+                        operand_list = []
+                        for arg in pre.args:
+                            if arg.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
+                                if arg.node_type == OperatorKind.NOT:
+                                    operand_list.append(z3.Not(self.boolean_variables[step][str(arg.args[0])]))
+                                else:
+                                    operand_list.append(self.boolean_variables[step][str(arg)])
+                            elif arg.node_type in IRA_RELATIONS:
+                                for ele in self.traverse_expression(arg, self.numeric_variables, step):
+                                    operand_list.append(ele)
                             else:
-                                # retrieve axioms corresponding to expression
-                                numeric_axiom = self.axioms_by_name[ne.expression]
-                                # build SMT expression
-                                expr = utils.inorderTraversal(self,numeric_axiom, self.numeric_variables[step])
-
-
-                            if ne.symbol == '=':
-                                actions.append(Implies(self.action_variables[step][action.name], next_step_variable == expr))
-                            elif ne.symbol == '+':
-                                actions.append(Implies(self.action_variables[step][action.name], next_step_variable == this_step_variable + expr))
-                            elif ne.symbol == '-':
-                                actions.append(Implies(self.action_variables[step][action.name], next_step_variable == this_step_variable - expr))
-                            elif ne.symbol == '*':
-                                actions.append(Implies(self.action_variables[step][action.name], next_step_variable == this_step_variable * expr))
-                            elif ne.symbol == '/':
-                                actions.append(Implies(self.action_variables[step][action.name], next_step_variable == this_step_variable / expr))
+                                raise Exception("Unknown precondition type {}".format(arg.node_type))
+                        
+                        for ele in operand_list:
+                            actions.append(z3.Implies(self.action_variables[step][action.name], ele))
+                    else:
+                        raise Exception("Unknown precondition type {}".format(pre.node_type))
+                                   
+                # Append add effects.
+                for effect in action.effects:
+                    if effect.kind == EffectKind.ASSIGN:
+                        # Check if this effect is a boolean fluent.
+                        fluent = str(effect.fluent)
+                        is_boolean_fluent = fluent in self.boolean_variables[step]
+                        if is_boolean_fluent:
+                            # get the value of the fluent to know whether to add or remove it.
+                            if effect.value.is_true():
+                                actions.append(z3.Implies(self.action_variables[step][action.name], self.boolean_variables[step+1][fluent]))
                             else:
-                                raise Exception('Operator not recognized')
+                                actions.append(z3.Implies(self.action_variables[step][action.name], z3.Not(self.boolean_variables[step+1][fluent])))
                         else:
+                            actions.append(z3.Implies(self.action_variables[step][action.name], self.numeric_variables[step+1][fluent] == effect.value))
+                    elif effect.kind in [EffectKind.INCREASE, EffectKind.DECREASE]:
+                        fluent_name  = str(effect.fluent)
+                        add_var_name = str(effect.value)
 
-                            raise Exception('Numeric effect {} not supported yet'.format(ne))
+                        if effect.value.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
+                            add_var = z3.Real(add_var_name)
+                        else:
+                            add_var = self.numeric_variables[step][add_var_name]
+
+
+                        if effect.kind == EffectKind.INCREASE:
+                            actions.append(z3.Implies(self.action_variables[step][action.name], self.numeric_variables[step+1][fluent_name] == self.numeric_variables[step][fluent_name] + add_var))
+                        else:
+                            actions.append(z3.Implies(self.action_variables[step][action.name], self.numeric_variables[step+1][fluent_name] == self.numeric_variables[step][fluent_name] - add_var))
                     else:
-                        raise Exception('Numeric conditional effects not supported yet')
+                        raise Exception("Unknown effect type {}".format(effect.kind))
+
+                if len(action.conditional_effects) > 0:
+                    raise Exception("Conditional effects are not supported yet")
 
         return actions
 
@@ -510,71 +343,115 @@ class Encoder():
 
         for step in range(self.horizon):
             # Encode frame axioms for boolean fluents
-            for fluent in self.boolean_fluents:
-                var_name = utils.varNameFromBFluent(fluent)
-                fluent_pre = self.boolean_variables[step].get(var_name, sentinel)
-                fluent_post = self.boolean_variables[step+1].get(var_name, sentinel)
+            for fluent in self.all_problem_fluents:
+                if fluent.type.is_bool_type():
+                    fluent_pre  = self.boolean_variables[step].get(fluent.name, sentinel)
+                    fluent_post = self.boolean_variables[step+1].get(fluent.name, sentinel)
+                    # Encode frame axioms only if atoms have SMT variables associated
+                    if fluent_pre is not sentinel and fluent_post is not sentinel:
+                        action_add = []
+                        action_del = []
 
-                # Encode frame axioms only if atoms have SMT variables associated
-                if fluent_pre is not sentinel and fluent_post is not sentinel:
-                    action_add = []
-                    action_del = []
+                        for action in self.ground_problem.actions:
+                            effects_fluents = [effect for effect in action.effects if effect.value.type.is_bool_type()]
+                            
+                            for ele in effects_fluents:
+                                if str(ele.fluent) == fluent.name:
+                                    if ele.value.is_true():
+                                        action_add.append(self.action_variables[step][action.name])
+                                    else:
+                                        action_del.append(self.action_variables[step][action.name])
 
-                    for action in self.actions:
-                        add_eff = [add[1] for add in action.add_effects]
-                        if fluent in add_eff:
-                            action_add.append(self.action_variables[step][action.name])
+                        frame.append(z3.Implies(z3.And(z3.Not(fluent_pre),fluent_post),z3.Or(action_add)))
+                        frame.append(z3.Implies(z3.And(fluent_pre,z3.Not(fluent_post)),z3.Or(action_del)))
 
-                        del_eff = [de[1] for de in action.del_effects]
-                        if fluent in del_eff:
-                            action_del.append(self.action_variables[step][action.name])
-
-                    frame.append(Implies(And(Not(fluent_pre),fluent_post),Or(action_add)))
-                    frame.append(Implies(And(fluent_pre,Not(fluent_post)),Or(action_del)))
-
-            # Encode frame axioms for numeric fluents
-            for fluent in self.numeric_fluents:
-                fluent_pre = self.numeric_variables[step].get(utils.varNameFromNFluent(fluent), sentinel)
-                fluent_post = self.numeric_variables[step+1].get(utils.varNameFromNFluent(fluent), sentinel)
-
-                if fluent_pre is not sentinel and fluent_post is not sentinel:
-                    action_num = []
-
-                    for action in self.actions:
-                        num_eff = [ne[1].fluent for ne in action.assign_effects]
-                        if fluent in num_eff:
-                            action_num.append(self.action_variables[step][action.name])
-
-                    #TODO
-                    # Can we write frame axioms for num effects in a more
-                    # efficient way?
-                    frame.append(Or(fluent_post == fluent_pre, Or(action_num)))
+                elif fluent.type.is_int_type() or fluent.type.is_real_type():
+                    fluent_pre  = self.numeric_variables[step].get(str(fluent), sentinel)
+                    fluent_post = self.numeric_variables[step+1].get(str(fluent), sentinel)
+                    if fluent_pre is not sentinel and fluent_post is not sentinel:
+                        action_num = []
+                        for action in self.ground_problem.actions:
+                            effects_fluents = [effect for effect in action.effects if effect.value.type.is_int_type() or effect.value.type.is_real_type()]
+                            for ele in effects_fluents:
+                                if str(ele.fluent) == str(fluent):
+                                    action_num.append(self.action_variables[step][action.name])
+                            
+                        #TODO
+                        # Can we write frame axioms for num effects in a more
+                        # efficient way?
+                        frame.append(z3.Or(fluent_post == fluent_pre, z3.Or(action_num)))
+                else:
+                    raise Exception("Unknown fluent type {}".format(fluent.type))
 
         return frame
 
-
     def encodeExecutionSemantics(self):
-        """!
-        Encodes execution semantics as specified by modifier class.
+            """!
+            Encodes execution semantics as specified by modifier class.
 
-        @return axioms that specify execution semantics.
-        """
+            @return axioms that specify execution semantics.
+            """
 
-        try:
-            return self.modifier.do_encode(self.action_variables, self.horizon)
-        except:
-            return self.modifier.do_encode(self.action_variables, self.mutexes, self.horizon)
+            try:
+                return self.modifier.do_encode(self.action_variables, self.horizon)
+            except:
+                return self.modifier.do_encode(self.action_variables, self.mutexes, self.horizon)
 
+    # can those two functions be replaced by walkers implemented in unified planning!!
+    def get_expression(self, arg, numeric_variables, horizon):
+        if arg.node_type in [OperatorKind.PLUS, OperatorKind.MINUS, OperatorKind.TIMES, OperatorKind.DIV]:
+            operands = []
+            for arg_i in arg.args:
+                if arg_i.node_type == OperatorKind.FLUENT_EXP:
+                    fluent_name = str(arg_i)
+                    operands.append(numeric_variables[horizon][fluent_name])
+                elif arg_i.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
+                    operands.append(z3.Real(str(arg_i)))
 
+            if arg.node_type == OperatorKind.PLUS:
+                expression = operands[0]
+                for operand in operands[1:]:
+                    expression += operand
+            elif arg.node_type == OperatorKind.MINUS:
+                expression = operands[0]
+                for operand in operands[1:]:
+                    expression -= operand
+            elif arg.node_type == OperatorKind.TIMES:
+                expression = operands[0]
+                for operand in operands[1:]:
+                    expression *= operand
+            elif arg.node_type == OperatorKind.DIV:
+                expression = operands[0]
+                for operand in operands[1:]:
+                    expression /= operand
+            else:
+                raise Exception("Unknown operator type {}".format(arg.node_type))
 
+            return expression
+        elif arg.node_type == OperatorKind.FLUENT_EXP:
+            fluent_name = str(arg) 
+            return numeric_variables[horizon][fluent_name]
+        elif arg.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
+            fluent_name = arg 
+            return z3.Real(str(fluent_name))
+        else:
+            raise Exception("Unknown operator type {}".format(arg.node_type))
 
-    def encode(self,horizon):
-        """
-        Basic method to build bounded encoding.
-
-        """
-
-        raise NotImplementedError
+    def traverse_expression(self, node, numeric_variables, horizon):
+        numeric_subgoals = []
+        if node.node_type in IRA_RELATIONS:
+            operand_1 = self.get_expression(node.args[0], numeric_variables, horizon)
+            operand_2 = self.get_expression(node.args[1], numeric_variables, horizon)
+            expression = operand_1 - operand_2
+            if node.node_type == OperatorKind.LT:
+                numeric_subgoals.append(expression < z3.Real('0'))
+            elif node.node_type == OperatorKind.LE:
+                numeric_subgoals.append(expression <= z3.Real('0'))
+        elif node.node_type == OperatorKind.EQUALS:
+            operand_1 = self.get_expression(node.args[0], numeric_variables, horizon)
+            operand_2 = self.get_expression(node.args[1], numeric_variables, horizon)
+            numeric_subgoals.append(operand_1 - operand_2 == 0)
+        return numeric_subgoals
 
 
 class EncoderSMT(Encoder):
