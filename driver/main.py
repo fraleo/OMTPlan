@@ -23,6 +23,7 @@ from . import arguments
 
 import subprocess
 import utils
+from copy import deepcopy
 from planner import encoder
 from planner import modifier
 from planner import search
@@ -96,11 +97,12 @@ def main(BASE_DIR):
     if not args.translate:
 
         # TODO: Valdiate using unified planning
-        # with PlanValidator(problem_kind=task.kind, plan_kind=plan.plan.kind) as validator:
-        #     if validator.validate(task, plan.plan):
-        #         print('The plan is valid')
-        #     else:
-        #         print('The plan is invalid')
+        extracted_plan = deepcopy(plan.plan)
+        with PlanValidator(problem_kind=task.kind) as validator:
+            if validator.validate(task, extracted_plan):
+                print('The plan is valid')
+            else:
+                print('The plan is invalid')
 
         print("Use unified planning to validate plan")
 

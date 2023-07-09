@@ -22,6 +22,7 @@ from z3 import *
 from unified_planning.shortcuts import *
 from unified_planning.plans import SequentialPlan
 from unified_planning.plans import ActionInstance
+from unified_planning.engines.compilers.utils import *
 
 
 
@@ -51,13 +52,12 @@ class Plan():
         index = 0
 
         ## linearize partial-order plan
-
         for step in range(self.encoder.horizon):
             for action in self.encoder.actions:
                 if is_true(model[self.encoder.action_variables[step][action.name]]):
                     plan.append(ActionInstance(action))
-                    
-        return SequentialPlan(plan)
+        p = SequentialPlan(plan)     
+        return p
 
 
     def _extractCost(self, objective=None):
