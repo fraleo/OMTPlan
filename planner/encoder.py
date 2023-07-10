@@ -40,6 +40,7 @@ class Encoder:
         self.boolean_variables = defaultdict(dict)
         self.numeric_variables = defaultdict(dict)
         self.action_variables  = defaultdict(dict)
+        
 
         self.problem_z3_variables = defaultdict(dict)
 
@@ -174,22 +175,39 @@ class Encoder:
         # MF: I hate this but the only way to get the function and its variable through parsing the initial values for the 
         # numeric fluents.
         numeric_fluents = [f for f in self.ground_problem.initial_values if f.type.is_int_type() or f.type.is_real_type()]
-        for step in range(self.horizon+1):
-            for fluent in numeric_fluents:
-                self.numeric_variables[step][str(fluent)] = z3.Real('{}_{}'.format(str(fluent),step))
-                self.problem_z3_variables[step][str(fluent)] = z3.Real('{}_{}'.format(str(fluent),step))
+
 
         # The grounder does not replace the constants in the problem, therefore we can do that by listing the 
         # predicates that are not modified by any action.
+        # We need to check the effects for each action and see if the predicate is modified.
+        constant_fluents = [str(f) for f in numeric_fluents]
+        for action in self.ground_problem.actions:
+            for effect in action.effects:
+                if effect.kind in [EffectKind.INCREASE, EffectKind.DECREASE, EffectKind.ASSIGN]:
+                    if str(effect.fluent) in constant_fluents:
+                        constant_fluents.remove(str(effect.fluent))
+        
+        # TODO: get the values for those constants to replace them in the problem.
 
+        # Now create z3 variables for the numeric fluents.
+        for step in range(self.horizon+1):
+            for fluent in numeric_fluents:
+                if not str(fluent) in constant_fluents:
+                    self.numeric_variables[step][str(fluent)] = z3.Real('{}_{}'.format(str(fluent),step))
+                    self.problem_z3_variables[step][str(fluent)] = z3.Real('{}_{}'.format(str(fluent),step))
+
+        self.all_problem_fluents.extend(boolean_fluents)
+        self.all_problem_fluents.extend(numeric_fluents)
+
+
+        # self.numeric_constants =
+        x = self.ground_problem.initial_values[numeric_fluents[2]]
         
         for step in range(self.horizon+1):
             for action in self.ground_problem.actions:
                 self.action_variables[step][action.name] = z3.Bool('{}_{}'.format(action.name,step))
 
-        self.all_problem_fluents.extend(boolean_fluents)
-        self.all_problem_fluents.extend(numeric_fluents)
-
+        
     def encodeInitialState(self):
         """!
         Encodes formula defining initial state
@@ -283,7 +301,6 @@ class Encoder:
                             add_var = z3.Real(add_var_name)
                         else:
                             add_var = self.numeric_variables[step][add_var_name]
-
 
                         if effect.kind == EffectKind.INCREASE:
                             actions.append(z3.Implies(self.action_variables[step][action.name], self.numeric_variables[step+1][fluent_name] == self.numeric_variables[step][fluent_name] + add_var))
