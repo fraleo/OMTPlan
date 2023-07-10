@@ -144,14 +144,28 @@ def inorderTraverse(root, z3_variable, numeric_constants):
     elif root.node_type == OperatorKind.EQUALS:
         operand_1 = inorderTraverse(root.args[0], z3_variable, numeric_constants)
         operand_2 = inorderTraverse(root.args[1], z3_variable, numeric_constants)
-        return operand_1 - operand_2 == z3.Real('0')
+        return operand_1 - operand_2 == z3.RealVal('0')
     elif root.node_type in IRA_RELATIONS:
         operand_1 = inorderTraverse(root.args[0], z3_variable, numeric_constants)
         operand_2 = inorderTraverse(root.args[1], z3_variable, numeric_constants)
+
+        left_expr = None
+        right_expr = None
+
+        if isinstance(operand_1, z3.z3.ArithRef) and isinstance(operand_2, z3.z3.ArithRef):
+            left_expr = operand_1
+            right_expr = operand_2
+        elif isinstance(operand_1, z3.z3.ArithRef) and isinstance(operand_2, z3.z3.RatNumRef):
+            left_expr =  z3.RealVal('0')
+            right_expr = operand_2 - operand_1
+        else:
+            left_expr = operand_1 - operand_2
+            right_expr = z3.RealVal('0') 
+
         if root.node_type == OperatorKind.LE:
-            return operand_1 - operand_2 <= z3.Real('0')
+            return left_expr <= right_expr
         elif root.node_type == OperatorKind.LT:
-            return operand_1 - operand_2 < z3.Real('0')
+            return left_expr < right_expr
         else:
             raise Exception("Unknown relation {}".format(root.node_type))
     elif root.node_type in IRA_OPERATORS:
@@ -186,7 +200,7 @@ def inorderTraverse(root, z3_variable, numeric_constants):
         else:
             return z3_variable[str(root)]
     elif root.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
-        return z3.Real(str(root))
+        return z3.RealVal(str(root))
     else:
         raise Exception("Unknown operator {}".format(root.node_type))
 
