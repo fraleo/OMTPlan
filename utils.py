@@ -123,12 +123,12 @@ def isNumFluent(fluent):
     """
     return fluent.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]
 
-def inorderTraverse(root, z3_variable):
+def inorderTraverse(root, z3_variable, numeric_constants):
     #if root is None,return
     if isinstance(root, list):
         subgoals = []
         for subgoal in root:
-            subgoals.append(inorderTraverse(subgoal, z3_variable))
+            subgoals.append(inorderTraverse(subgoal, z3_variable, numeric_constants))
         if root[0].node_type == OperatorKind.AND:
             return z3.And(subgoals) if len(subgoals) > 1 else subgoals[0]
         else:
@@ -136,18 +136,18 @@ def inorderTraverse(root, z3_variable):
     elif root.node_type in [OperatorKind.AND, OperatorKind.OR]:
         operands = []
         for arg in root.args:
-            operands.append(inorderTraverse(arg, z3_variable))
+            operands.append(inorderTraverse(arg, z3_variable, numeric_constants))
         if root.node_type == OperatorKind.AND:
             return z3.And(operands)
         else:
             return z3.Or(operands)
     elif root.node_type == OperatorKind.EQUALS:
-        operand_1 = inorderTraverse(root.args[0], z3_variable)
-        operand_2 = inorderTraverse(root.args[1], z3_variable)
-        return operand_1 == operand_2
+        operand_1 = inorderTraverse(root.args[0], z3_variable, numeric_constants)
+        operand_2 = inorderTraverse(root.args[1], z3_variable, numeric_constants)
+        return operand_1 - operand_2 == z3.Real('0')
     elif root.node_type in IRA_RELATIONS:
-        operand_1 = inorderTraverse(root.args[0], z3_variable)
-        operand_2 = inorderTraverse(root.args[1], z3_variable)
+        operand_1 = inorderTraverse(root.args[0], z3_variable, numeric_constants)
+        operand_2 = inorderTraverse(root.args[1], z3_variable, numeric_constants)
         if root.node_type == OperatorKind.LE:
             return operand_1 - operand_2 <= z3.Real('0')
         elif root.node_type == OperatorKind.LT:
@@ -157,7 +157,7 @@ def inorderTraverse(root, z3_variable):
     elif root.node_type in IRA_OPERATORS:
         operands = []
         for arg in root.args:
-            operands.append(inorderTraverse(arg, z3_variable))
+            operands.append(inorderTraverse(arg, z3_variable, numeric_constants))
         if root.node_type == OperatorKind.PLUS:
             expression = operands[0] + operands[1]
             for i in range(2, len(operands)):
@@ -180,10 +180,11 @@ def inorderTraverse(root, z3_variable):
     # these two should be retreived from the elements we already computed.
     elif root.node_type == OperatorKind.NOT:
         return z3.Not(z3_variable[str(root.args[0])])
-        # return z3.Not(root.args[0]) 
-        # return z3.Real(str(root))
     elif root.node_type in [OperatorKind.BOOL_CONSTANT, OperatorKind.FLUENT_EXP]:
-        return z3_variable[str(root)]
+        if str(root) in list(numeric_constants.keys()):
+            return z3.Real(str(numeric_constants[str(root)]))
+        else:
+            return z3_variable[str(root)]
     elif root.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
         return z3.Real(str(root))
     else:

@@ -1,6 +1,5 @@
 ; benchmark generated from python API
 (set-info :status unknown)
-(declare-fun max_int_0 () Real)
 (declare-fun |value(c0)_0| () Real)
 (declare-fun |value(c1)_0| () Real)
 (declare-fun |rate_value(c0)_0| () Real)
@@ -22,9 +21,6 @@
 (declare-fun |rate_value(c1)_1| () Real)
 (declare-fun decrement_rate_c0_0 () Bool)
 (declare-fun decrement_rate_c1_0 () Bool)
-(declare-fun max_int_1 () Real)
-(assert
- (= max_int_0 4.0))
 (assert
  (= |value(c0)_0| 0.0))
 (assert
@@ -67,8 +63,6 @@
  (=> decrement_rate_c1_0 (<= (- |1| |rate_value(c1)_0|) |0|)))
 (assert
  (=> decrement_rate_c1_0 (= |rate_value(c1)_1| (- |rate_value(c1)_0| |1|))))
-(assert
- (or (= max_int_1 max_int_0) or))
 (assert
  (or (= |value(c0)_1| |value(c0)_0|) (or increment_c0_0 decrement_c0_0)))
 (assert
