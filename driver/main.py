@@ -42,16 +42,16 @@ def main(BASE_DIR):
     # Parse planner args
     args = arguments.parse_args()
 
-    # Parse PDDL problem
-    reader = PDDLReader()
-    task = reader.parse_problem(args.domain, args.problem)
-    
     # Compose encoder and search
     # according to user flags
     if not args.parallel and not args.linear:
         print('No execution semantics specified, choose between linear or parallel.')
         print('Exiting now...')
         sys.exit()
+
+    # Parse PDDL problem
+    reader = PDDLReader()
+    task = reader.parse_problem(args.domain, args.problem)    
 
     if args.smt:
         
@@ -95,16 +95,17 @@ def main(BASE_DIR):
     val = BASE_DIR+val_path
 
     if not args.translate:
+        pass
 
         # TODO: Valdiate using unified planning
-        extracted_plan = deepcopy(plan.plan)
-        with PlanValidator(problem_kind=task.kind) as validator:
-            if validator.validate(task, extracted_plan):
-                print('The plan is valid')
-            else:
-                print('The plan is invalid')
+        # extracted_plan = deepcopy(plan.plan)
+        # with PlanValidator(problem_kind=task.kind) as validator:
+        #     if validator.validate(task, extracted_plan):
+        #         print('The plan is valid')
+        #     else:
+        #         print('The plan is invalid')
 
-        print("Use unified planning to validate plan")
+        # print("Use unified planning to validate plan")
 
         # TODO: Print plan using unified planning
 

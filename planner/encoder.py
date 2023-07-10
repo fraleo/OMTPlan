@@ -23,6 +23,7 @@ from unified_planning.shortcuts import *
 from unified_planning.engines import CompilationKind
 from unified_planning.model.operators import *
 
+
 import utils
 import numpy as np
 from . import loopformula
@@ -39,6 +40,8 @@ class Encoder:
         self.boolean_variables = defaultdict(dict)
         self.numeric_variables = defaultdict(dict)
         self.action_variables  = defaultdict(dict)
+
+        self.problem_z3_variables = defaultdict(dict)
 
         self.all_problem_fluents = []
 
@@ -165,12 +168,8 @@ class Encoder:
         for step in range(self.horizon+1):
             for fluent in boolean_fluents:
                 self.boolean_variables[step][fluent.name] = z3.Bool('{}_{}'.format(fluent.name,step))
+                self.problem_z3_variables[step][fluent.name] = z3.Bool('{}_{}'.format(fluent.name,step))
 
-        for f in self.ground_problem.fluents:
-            print(dir(f))
-            
-
-        const_fluents = [f for f in self.ground_problem.fluents if f.is_int_constant()]
         
         # MF: I hate this but the only way to get the function and its variable through parsing the initial values for the 
         # numeric fluents.
@@ -178,6 +177,10 @@ class Encoder:
         for step in range(self.horizon+1):
             for fluent in numeric_fluents:
                 self.numeric_variables[step][str(fluent)] = z3.Real('{}_{}'.format(str(fluent),step))
+                self.problem_z3_variables[step][str(fluent)] = z3.Real('{}_{}'.format(str(fluent),step))
+
+        # The grounder does not replace the constants in the problem, therefore we can do that by listing the 
+        # predicates that are not modified by any action.
 
         
         for step in range(self.horizon+1):
@@ -221,42 +224,8 @@ class Encoder:
 
         @return goal: Z3 formula asserting propositional and numeric subgoals
         """
-        def _encodePropositionalGoals(goal=None):
-            """
-            Encodes propositional subgoals.
-            """
-            propositional_subgoal = []
-            for goal in self.ground_problem.goals:
-                if goal.node_type in [OperatorKind.NOT, OperatorKind.AND, OperatorKind.OR]:
-                    for arg in goal.args:
-                        if arg.node_type == OperatorKind.FLUENT_EXP:
-                            propositional_subgoal.append(self.boolean_variables[self.horizon][str(arg)])
-                        elif arg.node_type == OperatorKind.NOT:
-                            propositional_subgoal.append(z3.Not(self.boolean_variables[self.horizon][str(arg.args[0])]))
-            return propositional_subgoal
+        return utils.inorderTraverse(self.ground_problem.goals, self.problem_z3_variables[self.horizon])
         
-        def _encodeNumericGoals(goal=None):
-            numeric_subgoals = []
-            for goal in self.ground_problem.goals:
-                if goal.node_type in [OperatorKind.AND, OperatorKind.OR]:
-                    operand_list = []
-                    for arg in goal.args:
-                        for ele in self.traverse_expression(arg, self.numeric_variables, self.horizon):
-                            operand_list.append(ele) 
-
-                    if goal.node_type == OperatorKind.AND:
-                        numeric_subgoals.append(z3.And(operand_list))
-                    elif goal.node_type == OperatorKind.OR:
-                        numeric_subgoals.append(z3.Or(operand_list))
-                    else:
-                        raise Exception("Unknown goal type {}".format(goal.node_type))
-            return numeric_subgoals
-
-        propositionalGoals = _encodePropositionalGoals()
-        numericGoals = _encodeNumericGoals()
-
-        return z3.And(z3.And(propositionalGoals), z3.And(numericGoals))
-
     def encodeActions(self):
         actions = []
         for step in range(self.horizon):
@@ -271,9 +240,9 @@ class Encoder:
                             actions.append(z3.Implies(self.action_variables[step][action.name], self.boolean_variables[step][fluent_name]))
                     
                     elif pre.node_type in IRA_RELATIONS:
-                        for cond in self.traverse_expression(pre, self.numeric_variables, step):
-                            actions.append(z3.Implies(self.action_variables[step][action.name], cond))
-                    
+                        action_precondition_expr = utils.inorderTraverse(pre, self.problem_z3_variables[step])
+                        actions.append(z3.Implies(self.action_variables[step][action.name], action_precondition_expr))
+
                     elif pre.node_type in [OperatorKind.AND, OperatorKind.OR]:
                         operand_list = []
                         for arg in pre.args:
@@ -283,8 +252,7 @@ class Encoder:
                                 else:
                                     operand_list.append(self.boolean_variables[step][str(arg)])
                             elif arg.node_type in IRA_RELATIONS:
-                                for ele in self.traverse_expression(arg, self.numeric_variables, step):
-                                    operand_list.append(ele)
+                                operand_list.append(utils.inorderTraverse(arg, self.problem_z3_variables[step]))
                             else:
                                 raise Exception("Unknown precondition type {}".format(arg.node_type))
                         
@@ -400,62 +368,6 @@ class Encoder:
                 return self.modifier.do_encode(self.action_variables, self.horizon)
             except:
                 return self.modifier.do_encode(self.action_variables, self.mutexes, self.horizon)
-
-    # can those two functions be replaced by walkers implemented in unified planning!!
-    def get_expression(self, arg, numeric_variables, horizon):
-        if arg.node_type in [OperatorKind.PLUS, OperatorKind.MINUS, OperatorKind.TIMES, OperatorKind.DIV]:
-            operands = []
-            for arg_i in arg.args:
-                if arg_i.node_type == OperatorKind.FLUENT_EXP:
-                    fluent_name = str(arg_i)
-                    operands.append(numeric_variables[horizon][fluent_name])
-                elif arg_i.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
-                    operands.append(z3.Real(str(arg_i)))
-
-            if arg.node_type == OperatorKind.PLUS:
-                expression = operands[0]
-                for operand in operands[1:]:
-                    expression += operand
-            elif arg.node_type == OperatorKind.MINUS:
-                expression = operands[0]
-                for operand in operands[1:]:
-                    expression -= operand
-            elif arg.node_type == OperatorKind.TIMES:
-                expression = operands[0]
-                for operand in operands[1:]:
-                    expression *= operand
-            elif arg.node_type == OperatorKind.DIV:
-                expression = operands[0]
-                for operand in operands[1:]:
-                    expression /= operand
-            else:
-                raise Exception("Unknown operator type {}".format(arg.node_type))
-
-            return expression
-        elif arg.node_type == OperatorKind.FLUENT_EXP:
-            fluent_name = str(arg) 
-            return numeric_variables[horizon][fluent_name]
-        elif arg.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
-            fluent_name = arg 
-            return z3.Real(str(fluent_name))
-        else:
-            raise Exception("Unknown operator type {}".format(arg.node_type))
-
-    def traverse_expression(self, node, numeric_variables, horizon):
-        numeric_subgoals = []
-        if node.node_type in IRA_RELATIONS:
-            operand_1 = self.get_expression(node.args[0], numeric_variables, horizon)
-            operand_2 = self.get_expression(node.args[1], numeric_variables, horizon)
-            expression = operand_1 - operand_2
-            if node.node_type == OperatorKind.LT:
-                numeric_subgoals.append(expression < z3.Real('0'))
-            elif node.node_type == OperatorKind.LE:
-                numeric_subgoals.append(expression <= z3.Real('0'))
-        elif node.node_type == OperatorKind.EQUALS:
-            operand_1 = self.get_expression(node.args[0], numeric_variables, horizon)
-            operand_2 = self.get_expression(node.args[1], numeric_variables, horizon)
-            numeric_subgoals.append(operand_1 - operand_2 == z3.Real('0'))
-        return numeric_subgoals
 
 class EncoderSMT(Encoder):
     """

@@ -16,5 +16,6 @@
 
   (:goal (and
     (<= (+ (value c0) 1) (value c1))
+    (= (value c1) 3) 
   ))
 )

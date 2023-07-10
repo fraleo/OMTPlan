@@ -123,6 +123,74 @@ def isNumFluent(fluent):
     """
     return fluent.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]
 
+def inorderTraverse(root, z3_variable):
+    #if root is None,return
+    if isinstance(root, list):
+        subgoals = []
+        for subgoal in root:
+            subgoals.append(inorderTraverse(subgoal, z3_variable))
+        if root[0].node_type == OperatorKind.AND:
+            return z3.And(subgoals) if len(subgoals) > 1 else subgoals[0]
+        else:
+            return z3.Or(subgoals) if len(subgoals) > 1 else subgoals[0]
+    elif root.node_type in [OperatorKind.AND, OperatorKind.OR]:
+        operands = []
+        for arg in root.args:
+            operands.append(inorderTraverse(arg, z3_variable))
+        if root.node_type == OperatorKind.AND:
+            return z3.And(operands)
+        else:
+            return z3.Or(operands)
+    elif root.node_type == OperatorKind.EQUALS:
+        operand_1 = inorderTraverse(root.args[0], z3_variable)
+        operand_2 = inorderTraverse(root.args[1], z3_variable)
+        return operand_1 == operand_2
+    elif root.node_type in IRA_RELATIONS:
+        operand_1 = inorderTraverse(root.args[0], z3_variable)
+        operand_2 = inorderTraverse(root.args[1], z3_variable)
+        if root.node_type == OperatorKind.LE:
+            return operand_1 - operand_2 <= z3.Real('0')
+        elif root.node_type == OperatorKind.LT:
+            return operand_1 - operand_2 < z3.Real('0')
+        else:
+            raise Exception("Unknown relation {}".format(root.node_type))
+    elif root.node_type in IRA_OPERATORS:
+        operands = []
+        for arg in root.args:
+            operands.append(inorderTraverse(arg, z3_variable))
+        if root.node_type == OperatorKind.PLUS:
+            expression = operands[0] + operands[1]
+            for i in range(2, len(operands)):
+                expression += operands[i]
+        elif root.node_type == OperatorKind.MINUS:
+            expression = operands[0] - operands[1]
+            for i in range(2, len(operands)):
+                expression -= operands[i]
+        elif root.node_type == OperatorKind.MUL:
+            expression = operands[0] * operands[1]
+            for i in range(2, len(operands)):
+                expression *= operands[i]
+        elif root.node_type == OperatorKind.DIV:
+            expression = operands[0] / operands[1]
+            for i in range(2, len(operands)):
+                expression /= operands[i]
+        else:
+            raise Exception("Unknown operator {}".format(root.node_type))
+        return expression
+    # these two should be retreived from the elements we already computed.
+    elif root.node_type == OperatorKind.NOT:
+        return z3.Not(z3_variable[str(root.args[0])])
+        # return z3.Not(root.args[0]) 
+        # return z3.Real(str(root))
+    elif root.node_type in [OperatorKind.BOOL_CONSTANT, OperatorKind.FLUENT_EXP]:
+        return z3_variable[str(root)]
+    elif root.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
+        return z3.Real(str(root))
+    else:
+        raise Exception("Unknown operator {}".format(root.node_type))
+
+
+
 # TODO: We need to fix this.
 def inorderTraversal(encoder,nax, numeric_variables):
         """!
