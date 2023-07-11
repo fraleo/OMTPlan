@@ -25,6 +25,9 @@ import unified_planning
 from collections import defaultdict
 from z3 import *
 import itertools
+from unified_planning.model.operators import *
+from unified_planning.shortcuts import *
+from unified_planning.model.walkers import *
 
 
 
@@ -36,8 +39,7 @@ def buildDTables(encoder):
     @return edges: edges of the dependency graph.
     @return table: datastructure containing info to build loop formula.
     """
-
-
+    
     # Edges of dependency graph
     edges = []
 
@@ -46,6 +48,95 @@ def buildDTables(encoder):
     # needed to build loop formula
 
     table = defaultdict(dict)
+
+    step = encoder.horizon + 1
+    for action in encoder.ground_problem.actions:
+        # preconditions of action
+        tpre = []
+
+        # relaxed preconditions of action
+        tpre_rel = []
+
+        # effects of action
+        teff = []
+
+        # Append preconditions
+        for pre in action.preconditions:
+            if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
+                fluent_name = str(pre)
+                tpre.append(encoder.touched_variables[fluent_name])
+
+                if pre.node_type == OperatorKind.NOT:
+                    # This is a hacky way to remove the not ( ) from the string to get the fluent name
+                    fluent_name = str(pre).replace("(not ","").replace(")","")
+                    tmp = [z3.Not(encoder.boolean_variables[step-1][fluent_name]), encoder.touched_variables[fluent_name]]
+                else:
+                    tmp = [encoder.boolean_variables[step-1][fluent_name],encoder.touched_variables[fluent_name]]
+                
+                tpre_rel.append(tuple(tmp))
+            
+            else:
+                action_precondition_expr = utils.inorderTraverse(pre, encoder.problem_z3_variables[step-1], encoder.problem_constant_numerics)
+                tmp = [action_precondition_expr]
+                for var_name in FreeVarsExtractor().get(pre):
+                    tpre.append(encoder.touched_variables[str(var_name)])
+                    tmp.append(encoder.touched_variables[str(var_name)])
+                tpre.append(tuple(tmp))
+
+            # elif pre.node_type in [OperatorKind.AND, OperatorKind.OR]:
+                
+            #     for arg in pre.args:
+            #         if arg.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
+            #             fluent_name = str(pre)
+            #             tpre.append(encoder.touched_variables[fluent_name])
+            #             if pre.node_type == OperatorKind.NOT:
+            #                 # This is a hacky way to remove the not ( ) from the string to get the fluent name
+            #                 fluent_name = str(pre).replace("(not ","").replace(")","")
+            #                 tmp = [z3.Not(encoder.boolean_variables[step-1][fluent_name]), encoder.touched_variables[fluent_name]]
+            #             else:
+            #                 tmp = [encoder.boolean_variables[step-1][fluent_name],encoder.touched_variables[fluent_name]]
+            #             tpre_rel.append(tuple(tmp))
+
+            #         elif arg.node_type in IRA_RELATIONS:
+            #             action_precondition_expr = utils.inorderTraverse(pre, encoder.problem_z3_variables[step-1], encoder.problem_constant_numerics)
+                
+            #             tmp = [action_precondition_expr]
+            #             for var_name in FreeVarsExtractor().get(arg):
+            #                 tpre.append(encoder.touched_variables[var_name])
+            #                 tmp.append(encoder.touched_variables[var_name])
+
+            #             tpre.append(tuple(tmp))
+            #         else:
+            #             raise Exception("Unknown precondition type {}".format(arg.node_type))
+            # else:
+            #     raise Exception("Unknown precondition type {}".format(pre.node_type))
+                            
+        # Append effects.
+        for effect in action.effects:
+            teff.append(encoder.touched_variables[str(effect.fluent)])
+        
+        ## Pupulate edges
+        for p in tpre:
+            for e in teff:
+                edges.append((e,p))
+
+        ## Fill lookup table
+
+        table[action.name]['pre'] = tpre
+        table[action.name]['pre_rel'] = tpre_rel
+        table[action.name]['eff'] = teff
+        
+        if len(action.conditional_effects) > 0:
+            raise Exception("Conditional effects are not supported yet")
+
+    ## Remove duplicate edges
+    edges = set(edges)
+
+    return edges, table
+
+
+
+
 
     step = encoder.horizon+1
 
@@ -183,7 +274,7 @@ def encodeLoopFormulas(encoder):
     @param encoder
     @return lf: list of loop formulas.
     """
-    return None
+    
     lf = []
 
     ## reverse map touched vars

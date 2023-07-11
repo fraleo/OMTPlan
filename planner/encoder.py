@@ -762,7 +762,6 @@ class EncoderOMT(Encoder):
 
 
         return trac
-      
     # This needs a fix.
     def encodeASAP(self):
         """!
