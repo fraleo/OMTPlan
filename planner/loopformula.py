@@ -187,7 +187,7 @@ def encodeLoopFormulas(encoder):
     lf = []
 
     ## reverse map touched vars
-    inv_touched_variables = {v: k for k, v in encoder.touched_variables.iteritems()}
+    inv_touched_variables = {v: k for k, v in encoder.touched_variables.items()}
 
     ## compute data to build loop formulas
     edges, table = buildDTables(encoder)

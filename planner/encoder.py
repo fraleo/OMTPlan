@@ -22,6 +22,7 @@ from copy import deepcopy
 from unified_planning.shortcuts import *
 from unified_planning.engines import CompilationKind
 from unified_planning.model.operators import *
+from unified_planning.model.walkers import *
 
 
 import utils
@@ -490,8 +491,10 @@ class EncoderOMT(Encoder):
             self.touched_variables[var_name] = z3.Bool('t{}_{}'.format(var_name,self.horizon+1))
 
         for var_name in self.numeric_variables[0].keys():
-            if not var_name in self.var_objective:
-                self.touched_variables[var_name] = z3.Bool('t{}_{}'.format(var_name,self.horizon+1))
+            self.touched_variables[var_name] = z3.Bool('t{}_{}'.format(var_name,self.horizon+1))
+            # I don't think this is right.
+            # if not var_name in self.var_objective:
+            #     self.touched_variables[var_name] = z3.Bool('t{}_{}'.format(var_name,self.horizon+1))
 
         # create sets of relaxed action variables for
         # steps n, n+1
@@ -501,14 +504,16 @@ class EncoderOMT(Encoder):
         for step in range(self.horizon,self.horizon+2):
             for action in self.actions:
                 self.auxiliary_actions[step][action.name] = z3.Bool('{}_{}'.format(action.name,step))
-        
 
-        print(self.touched_variables[var_name])
-        print(self.auxiliary_actions[0][action.name])
-        exit()
+    def encodeRelaxedGoal(self):
+        """!
+        Encodes relaxed goals.
 
+        @return goal: relaxed goal formula
+        """
+        return utils.inorderTraverse(self.ground_problem.goals, self.problem_z3_variables[self.horizon], self.problem_constant_numerics, self.touched_variables) 
 
-    # Needs fixing
+    # Maybe not sure if it needs a fix or not.
     def encodeRelaxedActions(self):
         """!
         Encodes relaxed universal axioms.
@@ -526,89 +531,68 @@ class EncoderOMT(Encoder):
 
         step = self.horizon
 
-        for action in self.actions:
-
-            # Encode concrete preconditions
-            for pre in action.condition:
-                if utils.isBoolFluent(pre):
-                    var_name = utils.varNameFromBFluent(pre)
-                    if pre.negated:
-                        relax.append(Implies(self.auxiliary_actions[step][action.name],Not(self.boolean_variables[step][var_name])))
+        for action in self.ground_problem.actions:
+            # Append preconditions
+            for pre in action.preconditions:
+                if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
+                    fluent_name = str(pre)
+                    if pre.node_type == OperatorKind.NOT:
+                        # This is a hacky way to remove the not ( ) from the string to get the fluent name
+                        fluent_name = str(pre).replace("(not ","").replace(")","")
+                        relax.append(z3.Implies(self.auxiliary_actions[step][action.name], z3.Not(self.boolean_variables[step][fluent_name])))
                     else:
-                        relax.append(Implies(self.auxiliary_actions[step][action.name],self.boolean_variables[step][var_name]))
+                        relax.append(z3.Implies(self.auxiliary_actions[step][action.name], self.boolean_variables[step][fluent_name]))
+                
+                elif pre.node_type in IRA_RELATIONS:
+                    action_precondition_expr = utils.inorderTraverse(pre, self.problem_z3_variables[step], self.problem_constant_numerics)
+                    relax.append(z3.Implies(self.auxiliary_actions[step][action.name], action_precondition_expr))
 
-                elif isinstance(pre, pddl.conditions.FunctionComparison):
-                    expr = utils.inorderTraversalFC(self,pre,self.numeric_variables[step])
-                    relax.append(Implies(self.auxiliary_actions[step][action.name],expr))
-
-                else:
-                    raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre,type(pre)))
-
-            # Encode abstract add effects
-            for add in action.add_effects:
-                if len(add[0]) == 0:
-                    relax.append(Implies(self.auxiliary_actions[step][action.name],self.touched_variables[utils.varNameFromBFluent(add[1])]))
-                elif len(add[0]) == 1:
-                    relax.append(Implies(self.auxiliary_actions[step][action.name],self.touched_variables[utils.varNameFromBFluent(add[1])]))
-                else:
-                    raise Exception(' Action {} contains add effect not supported'.format(action.name))
-
-
-            # Encode abstract delete effects
-            for de in action.del_effects:
-                if len(de[0]) == 0:
-                    relax.append(Implies(self.auxiliary_actions[step][action.name], self.touched_variables[utils.varNameFromBFluent(de[1])]))
-                elif len(de[0]) == 1:
-                    relax.append(Implies(self.auxiliary_actions[step][action.name], self.touched_variables[utils.varNameFromBFluent(de[1])]))
-                else:
-                    raise Exception(' Action {} contains del effect not supported'.format(action.name))
-
-
-            # Encode  abstract numeric effects
-
-            for ne in action.assign_effects:
-                if len(ne[0]) == 0:
-                    if isinstance(ne[1], pddl.f_expression.FunctionAssignment):
-
-                        ## Numeric effects have fluents on the left and either a const, a fluent
-                        ## or a complex numeric expression on the right
-
-                        ## Handle left side
-                        # retrieve variable name
-                        var_name = utils.varNameFromNFluent(ne[1].fluent)
-                        if not var_name in self.var_objective:
-                            relax.append(Implies(self.auxiliary_actions[step][action.name],self.touched_variables[var_name]))
-                        else:
-
-                            ## Handle right side
-
-                            if ne[1].expression in self.numeric_fluents and not ne[1].expression.symbol.startswith('derived!'): ##don't consider variables added by TFD
-                                # right side is a simple fluent
-                                var_name = utils.varNameFromNFluent(ne[1].expression)
-                                expr = self.numeric_variables[step][var_name]
+                elif pre.node_type in [OperatorKind.AND, OperatorKind.OR]:
+                    operand_list = []
+                    for arg in pre.args:
+                        if arg.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
+                            if arg.node_type == OperatorKind.NOT:
+                                operand_list.append(z3.Not(self.boolean_variables[step][str(arg.args[0])]))
                             else:
-                                # retrieve axioms corresponding to expression
-                                numeric_axiom = self.axioms_by_name[ne[1].expression]
-                                # build SMT expression
-                                expr = utils.inorderTraversal(self,numeric_axiom, self.numeric_variables[step])
-
-                            self.final_costs[action.name].append(expr)
-
-                    else:
-
-                        raise Exception('Numeric effect {} not supported yet'.format(ne[1]))
+                                operand_list.append(self.boolean_variables[step][str(arg)])
+                        elif arg.node_type in IRA_RELATIONS:
+                            operand_list.append(utils.inorderTraverse(arg, self.problem_z3_variables[step], self.problem_constant_numerics))
+                        else:
+                            raise Exception("Unknown precondition type {}".format(arg.node_type))
+                    
+                    for ele in operand_list:
+                        relax.append(z3.Implies(self.auxiliary_actions[step][action.name], ele))
                 else:
-                    raise Exception('Numeric conditional effects not supported yet')
+                    raise Exception("Unknown precondition type {}".format(pre.node_type))
+                                
+            # Append effects.
+            for effect in action.effects:
+                if effect.kind == EffectKind.ASSIGN:
+                    # Check if this effect is a boolean fluent.
+                    fluent = str(effect.fluent)
+                    is_boolean_fluent = fluent in self.touched_variables
+                    if is_boolean_fluent:
+                        # get the value of the fluent to know whether to add or remove it.
+                        if effect.value.is_true():
+                            relax.append(z3.Implies(self.auxiliary_actions[step][action.name], self.touched_variables[fluent]))
+                        else:
+                            relax.append(z3.Implies(self.auxiliary_actions[step][action.name], z3.Not(self.touched_variables[fluent])))
+                elif effect.kind in [EffectKind.INCREASE, EffectKind.DECREASE]:
+                    # This relaxed version only implies the touched variables.
+                    fluent_name  = str(effect.fluent)
+                    relax.append(z3.Implies(self.auxiliary_actions[step][action.name], self.touched_variables[fluent_name]))
+                else:
+                    raise Exception("Unknown effect type {}".format(effect.kind))
 
         return relax
-
+    # This needs a fix.
     def encodeTransitiveClosure(self):
         """!
         Encodes computation of transitive closure at step n+1  (see related paper).
 
         @return trac: Z3 formulas that encode computation of transitive closure.
         """
-
+        return 
         trac = []
 
         step = self.horizon+1
@@ -729,112 +713,7 @@ class EncoderOMT(Encoder):
 
 
         return trac
-
-    def encodeRelaxedGoal(self):
-        """!
-        Encodes relaxed goals.
-
-        @return goal: relaxed goal formula
-        """
-
-
-        def _encodeRelPropositionalGoals(goal=None):
-            """
-            Encodes relaxed propositional subgoals.
-            """
-
-            propositional_subgoal = []
-
-            # UGLY HACK: we skip atomic propositions that are added
-            # to handle numeric axioms by checking names.
-            axiom_names = [axiom.name for axiom in self.task.axioms]
-
-            # Doing this as I might be calling this method
-            # if I find a propositional subgoal in numeric conditions
-            # see method below...
-
-            if goal is None:
-                goal = self.task.goal
-
-            # Check if goal is just a single atom
-            if isinstance(goal, pddl.conditions.Atom):
-                if not goal.predicate in axiom_names:
-                    if goal in self.boolean_fluents:
-                        var_name = utils.varNameFromBFluent(goal)
-                        if  goal.negated:
-                            propositional_subgoal.append(Or(Not(self.boolean_variables[self.horizon][var_name]), self.touched_variables[var_name]))
-                        else:
-                            propositional_subgoal.append(Or(self.boolean_variables[self.horizon][var_name],self.touched_variables[var_name]))
-
-            # Check if goal is a conjunction
-            elif isinstance(goal,pddl.conditions.Conjunction):
-                for fact in goal.parts:
-                    var_name = utils.varNameFromBFluent(fact)
-                    if  fact.negated:
-                        propositional_subgoal.append(Or(Not(self.boolean_variables[self.horizon][var_name]),self.touched_variables[var_name]))
-                    else:
-                        propositional_subgoal.append(Or(self.boolean_variables[self.horizon][var_name],self.touched_variables[var_name]))
-
-            else:
-                raise Exception('Propositional goal condition \'{}\': type \'{}\' not recognized'.format(goal, type(goal)))
-
-            return propositional_subgoal
-
-
-        def _encodeRelNumericGoals():
-            """
-            Encodes relaxed numeric subgoals.
-            """
-
-            numeric_subgoal = []
-
-            for axiom in self.task.axioms:
-                condition = axiom.condition
-
-                if isinstance(condition, pddl.conditions.FunctionComparison):
-                    expression = utils.inorderTraversalFC(self, condition, self.numeric_variables[self.horizon])
-
-                    # extract touched variables
-                    tvariables = []
-
-                    for var_name in utils.extractVariablesFC(self,condition):
-                        tvariables.append(self.touched_variables[var_name])
-
-                    numeric_subgoal.append(z3.Or(expression, z3.Or(tvariables)))
-
-                elif isinstance(condition, pddl.conditions.Conjunction):
-
-                    for part in condition.parts:
-                        # Apparently boolean subgoal may still end up
-                        # in numeric condition objects...
-                        if utils.isBoolFluent(part):
-                            propositional_subgoal = _encodeRelPropositionalGoals(part)
-                            for sg in propositional_subgoal:
-                                numeric_subgoal.append(sg)
-                        if isinstance(part,pddl.conditions.FunctionComparison):
-
-                            expression = utils.inorderTraversalFC(self, part, self.numeric_variables[self.horizon])
-
-                            # extract touched variables
-                            tvariables = []
-
-                            for var_name in utils.extractVariablesFC(self,part):
-                                tvariables.append(self.touched_variables[var_name])
-
-                            numeric_subgoal.append(z3.Or(expression, z3.Or(tvariables)))
-
-                else:
-                    raise Exception('Numeric goal condition not recognized')
-            return numeric_subgoal
-
-
-        propositional_subgoal = _encodeRelPropositionalGoals()
-        numeric_subgoal = _encodeRelNumericGoals()
-
-        rel_goal = z3.And(z3.And(propositional_subgoal),z3.And(numeric_subgoal))
-
-        return rel_goal
-
+       
     def encodeAdditionalCosts(self):
         """!
         Encodes costs for relaxed actions that may be executed in the suffix.
@@ -862,14 +741,14 @@ class EncoderOMT(Encoder):
         constraints = z3.And(constraints)
 
         return sum(costs), constraints
-
+    # This needs a fix.
     def encodeASAP(self):
         """!
         Encodes constraints that push execution of actions as early as possible.
 
         @return list of Z3 formulas.
         """
-
+        return 
         # ASAP constraint are enforced both for concrete and relaxed actions
         all_actions  = self.action_variables.copy()
         all_actions.update(self.auxiliary_actions)
@@ -1009,7 +888,7 @@ class EncoderOMT(Encoder):
 
         abstract_goal = self.encodeRelaxedGoal()
 
-        formula['goal'] = Or(goal,abstract_goal)
+        formula['goal'] = z3.Or(goal,abstract_goal)
 
         # Encode loop formula
 
