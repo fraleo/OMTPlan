@@ -243,6 +243,41 @@ class Encoder:
         return utils.inorderTraverse(self.ground_problem.goals, self.problem_z3_variables[self.horizon], self.problem_constant_numerics)
         
     def encodeActions(self):
+
+        def _process_IRAOPERATIONS(effect):
+            # We need to evaluate the expression to get the value of the variable
+            if str(effect.value.args[0]) in list(self.problem_constant_numerics.keys()):
+                _o1 = self.problem_constant_numerics[str(effect.value.args[0])]
+            elif str(effect.value.args[0]) in list(self.problem_z3_variables[step].keys()):
+                _o1 = self.problem_z3_variables[step][str(effect.value.args[0])]
+            elif effect.value.node_type in IRA_OPERATORS:
+                return utils.inorderTraverse(effect.value.args[1], self.problem_z3_variables[step], self.problem_constant_numerics)
+            else:
+                raise Exception("Unknown variable {}".format(effect.value.args[0]))
+            
+            if str(effect.value.args[1]) in list(self.problem_constant_numerics.keys()):
+                _o2 = self.problem_constant_numerics[str(effect.value.args[1])]
+            elif str(effect.value.args[1]) in list(self.problem_z3_variables[step].keys()):
+                _o2 = self.problem_z3_variables[step][str(effect.value.args[1])]
+            elif effect.value.node_type in IRA_OPERATORS:
+                return utils.inorderTraverse(effect.value.args[1], self.problem_z3_variables[step], self.problem_constant_numerics)
+            else:
+                raise Exception("Unknown variable {}".format(effect.value.args[1]))
+
+            if effect.value.node_type == OperatorKind.PLUS:
+                return _o1 + _o2
+            elif effect.value.node_type == OperatorKind.MINUS:
+                return _o1 - _o2
+            elif effect.value.node_type == OperatorKind.TIMES:
+                return _o1 * _o2
+            elif effect.value.node_type == OperatorKind.DIV:
+                return _o1 / _o2
+            else:
+                raise Exception("Unknown effect type {}".format(effect.kind))
+        
+
+
+
         actions = []
         for step in range(self.horizon):
             for action in self.ground_problem.actions:
@@ -300,20 +335,7 @@ class Encoder:
                         if effect.value.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
                             add_var = z3.RealVal(add_var_name)
                         elif effect.value.node_type in IRA_OPERATORS:
-                            # We need to evaluate the expression to get the value of the variable
-                            _o1 = self.problem_constant_numerics[str(effect.value.args[0])]
-                            _o2 = self.problem_constant_numerics[str(effect.value.args[1])]
-
-                            if effect.value.node_type == OperatorKind.PLUS:
-                                add_var = z3.RealVal(_o1 + _o2)
-                            elif effect.value.node_type == OperatorKind.MINUS:
-                                add_var = z3.RealVal(_o1 - _o2)
-                            elif effect.value.node_type == OperatorKind.TIMES:
-                                add_var = z3.RealVal(_o1 * _o2)
-                            elif effect.value.node_type == OperatorKind.DIV:
-                                add_var = z3.RealVal(_o1 / _o2)
-                            else:
-                                raise Exception("Unknown effect type {}".format(effect.kind))
+                            add_var = _process_IRAOPERATIONS(effect)
                         elif add_var_name in self.problem_constant_numerics:
                             add_var = z3.RealVal(self.problem_constant_numerics[add_var_name])
                         else:
