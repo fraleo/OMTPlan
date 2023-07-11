@@ -465,15 +465,17 @@ class EncoderOMT(Encoder):
         @return objective: objective function.
         """
 
-        objective = None
+        objective = []
         if len(self.ground_problem.quality_metrics) > 0:
-            objective = deepcopy(self.ground_problem.quality_metrics)
+            for metric in deepcopy(self.ground_problem.quality_metrics):
+                objective.append(utils.inorderTraverse(metric.expression, self.problem_z3_variables[self.horizon], self.problem_constant_numerics) )
+            print('stop here')
         else:
             objective = []
             for step in range(self.horizon):
                 for action in self.action_variables[step].values():
                     objective.append(z3.If(action,1.0,0.0))
-            objective = sum(objective)
+        objective = sum(objective)
         return objective
         
     def createAuxVariables(self):
@@ -512,6 +514,53 @@ class EncoderOMT(Encoder):
         @return goal: relaxed goal formula
         """
         return utils.inorderTraverse(self.ground_problem.goals, self.problem_z3_variables[self.horizon], self.problem_constant_numerics, self.touched_variables) 
+
+    def encodeAdditionalCosts(self):
+        """!
+        Encodes costs for relaxed actions that may be executed in the suffix.
+        At each step, we define a cost variables that is equal to the summation of
+        pseudoboolean terms (if action is executed we pay a price -- see paper)
+
+        @return sum of additional costs
+        @return cost contraints
+        """
+
+        costs = []
+        constraints = []
+
+        for step in range(self.horizon,self.horizon+2):
+            cost = z3.Real('add_cost_{}'.format(step))
+            total = []
+            for a,v in self.auxiliary_actions[step].items():
+                if len(self.ground_problem.quality_metrics) > 0:
+                    total.append(z3.If(v,1.0*sum(self.final_costs[a]),0.0))
+                else:
+                    total.append(z3.If(v,1.0,0.0))
+            constraints.append(cost == sum(total))
+            costs.append(cost)
+
+        constraints = z3.And(constraints)
+
+        return sum(costs), constraints
+
+    def encodeOnlyIfNeeded(self):
+        """!
+        Enforces that auxiliary variables can be executed only ifall steps before
+        the suffix are filled with at least one action.
+
+        @return list of Z3 constraints.
+        """
+
+        c = []
+
+        for step in range(self.horizon,self.horizon+2):
+            rel_a = list(self.auxiliary_actions[step].values())
+            actions = []
+            for index in range(self.horizon):
+                actions.append(z3.Or(list(self.action_variables[index].values())))
+            c.append(z3.Implies(z3.Or(rel_a), z3.And(actions)))
+
+        return c
 
     # Maybe not sure if it needs a fix or not.
     def encodeRelaxedActions(self):
@@ -713,34 +762,7 @@ class EncoderOMT(Encoder):
 
 
         return trac
-       
-    def encodeAdditionalCosts(self):
-        """!
-        Encodes costs for relaxed actions that may be executed in the suffix.
-        At each step, we define a cost variables that is equal to the summation of
-        pseudoboolean terms (if action is executed we pay a price -- see paper)
-
-        @return sum of additional costs
-        @return cost contraints
-        """
-
-        costs = []
-        constraints = []
-
-        for step in range(self.horizon,self.horizon+2):
-            cost = z3.Real('add_cost_{}'.format(step))
-            total = []
-            for a,v in self.auxiliary_actions[step].items():
-                if self.task.metric:
-                    total.append(z3.If(v,1.0*sum(self.final_costs[a]),0.0))
-                else:
-                    total.append(z3.If(v,1.0,0.0))
-            constraints.append(cost == sum(total))
-            costs.append(cost)
-
-        constraints = z3.And(constraints)
-
-        return sum(costs), constraints
+      
     # This needs a fix.
     def encodeASAP(self):
         """!
@@ -798,24 +820,6 @@ class EncoderOMT(Encoder):
 
         return c
 
-    def encodeOnlyIfNeeded(self):
-        """!
-        Enforces that auxiliary variables can be executed only ifall steps before
-        the suffix are filled with at least one action.
-
-        @return list of Z3 constraints.
-        """
-
-        c = []
-
-        for step in range(self.horizon,self.horizon+2):
-            rel_a = self.auxiliary_actions[step].values()
-            actions = []
-            for index in range(self.horizon):
-                actions.append(z3.Or(self.action_variables[index].values()))
-            c.append(z3.Implies(z3.Or(rel_a), z3.And(actions)))
-
-        return c
 
     def encode(self,horizon):
         """!
@@ -870,15 +874,15 @@ class EncoderOMT(Encoder):
 
         # Encode relaxed transition T^R
 
-        formula['tr'] = self.encodeRelaxedActions()
+        formula['tr'] = self.encodeRelaxedActions() # To be fixed
 
         # Encode transitive closure
 
-        formula['tc'] = self.encodeTransitiveClosure()
+        formula['tc'] = self.encodeTransitiveClosure() # To be fixed
 
         # Encode ASAP constraints
 
-        formula['asap'] = self.encodeASAP()
+        formula['asap'] = self.encodeASAP() # To be fixed
 
         # Encode relaxed  goal state axioms
 
@@ -892,7 +896,7 @@ class EncoderOMT(Encoder):
 
         # Encode loop formula
 
-        formula['lf'] = loopformula.encodeLoopFormulas(self)
+        formula['lf'] = loopformula.encodeLoopFormulas(self) # To be fixed
 
         # Encode additional cost for relaxed actions
 

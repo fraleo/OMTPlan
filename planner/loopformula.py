@@ -183,7 +183,7 @@ def encodeLoopFormulas(encoder):
     @param encoder
     @return lf: list of loop formulas.
     """
-
+    return None
     lf = []
 
     ## reverse map touched vars

@@ -79,7 +79,7 @@ def main(BASE_DIR):
         if args.translate:
             formula = e.encode(args.translate)
             # Print OMT planning formula (linear) to file
-            utils.printOMTFormula(formula,task.task_name)            
+            utils.printOMTFormula(formula,task.name)            
         else:
             s = search.SearchOMT(e, args.b)
             plan = s.do_search()        
