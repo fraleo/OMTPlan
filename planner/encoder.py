@@ -164,8 +164,7 @@ class Encoder:
 
         """
         
-        # MF: I hate this but the only way to get the function and its variable through parsing the initial values for the 
-        # numeric fluents.
+        # MF: I hate this but the only way to get grounded functions parsing the initial values
 
         boolean_fluents = [f for f in self.ground_problem.initial_values if f.type.is_bool_type()]
         for step in range(self.horizon+1):
@@ -279,43 +278,19 @@ class Encoder:
 
 
         actions = []
+        new_actions = []
         for step in range(self.horizon):
             for action in self.ground_problem.actions:
                 # Append preconditions
                 for pre in action.preconditions:
-                    if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
-                        fluent_name = str(pre)
-                        if pre.node_type == OperatorKind.NOT:
-                            # This is a hacky way to remove the not ( ) from the string to get the fluent name
-                            fluent_name = str(pre).replace("(not ","").replace(")","")
-                            actions.append(z3.Implies(self.action_variables[step][action.name], z3.Not(self.boolean_variables[step][fluent_name])))
-                        else:
-                            actions.append(z3.Implies(self.action_variables[step][action.name], self.boolean_variables[step][fluent_name]))
-                    
-                    elif pre.node_type in IRA_RELATIONS:
-                        action_precondition_expr = utils.inorderTraverse(pre, self.problem_z3_variables[step], self.problem_constant_numerics)
-                        actions.append(z3.Implies(self.action_variables[step][action.name], action_precondition_expr))
-
-                    elif pre.node_type in [OperatorKind.AND, OperatorKind.OR]:
-                        operand_list = []
-                        for arg in pre.args:
-                            if arg.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
-                                if arg.node_type == OperatorKind.NOT:
-                                    operand_list.append(z3.Not(self.boolean_variables[step][str(arg.args[0])]))
-                                else:
-                                    operand_list.append(self.boolean_variables[step][str(arg)])
-                            elif arg.node_type in IRA_RELATIONS:
-                                operand_list.append(utils.inorderTraverse(arg, self.problem_z3_variables[step], self.problem_constant_numerics))
-                            else:
-                                raise Exception("Unknown precondition type {}".format(arg.node_type))
-                        
-                        for ele in operand_list:
-                            actions.append(z3.Implies(self.action_variables[step][action.name], ele))
-                    else:
-                        raise Exception("Unknown precondition type {}".format(pre.node_type))
-                                   
+                    precondition = utils.inorderTraverse(pre, self.problem_z3_variables[step], self.problem_constant_numerics)
+                    actions.append(z3.Implies(self.action_variables[step][action.name], precondition))
+                    new_actions.append(z3.Implies(self.action_variables[step][action.name], precondition))
                 # Append effects.
                 for effect in action.effects:
+                    _eff = utils.inorderTraverseEffect(effect, self.problem_z3_variables, self.problem_constant_numerics, step)
+                    new_actions.append(z3.Implies(self.action_variables[step][action.name], _eff))
+
                     if effect.kind == EffectKind.ASSIGN:
                         # Check if this effect is a boolean fluent.
                         fluent = str(effect.fluent)
@@ -329,7 +304,7 @@ class Encoder:
                         else:
                             actions.append(z3.Implies(self.action_variables[step][action.name], self.numeric_variables[step+1][fluent] == effect.value))
                     elif effect.kind in [EffectKind.INCREASE, EffectKind.DECREASE]:
-                        fluent_name  = str(effect.fluent)
+                        
                         add_var_name = str(effect.value)
 
                         if effect.value.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
@@ -342,6 +317,7 @@ class Encoder:
                             # This is a fluent
                             add_var = self.numeric_variables[step][add_var_name]
 
+                        fluent_name  = str(effect.fluent)
                         if effect.kind == EffectKind.INCREASE:
                             actions.append(z3.Implies(self.action_variables[step][action.name], self.numeric_variables[step+1][fluent_name] == self.numeric_variables[step][fluent_name] + add_var))
                         else:
@@ -352,6 +328,15 @@ class Encoder:
                 if len(action.conditional_effects) > 0:
                     raise Exception("Conditional effects are not supported yet")
 
+        t = actions == new_actions
+
+        # dump list to file
+        with open('actions.txt', 'w') as f:
+            for item in actions:
+                f.write("%s\n" % item)
+        with open('new_actions.txt', 'w') as f:
+            for item in new_actions:
+                f.write("%s\n" % item)
         return actions
 
     def encodeFrame(self):

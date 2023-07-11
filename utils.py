@@ -22,6 +22,7 @@ import re
 from z3 import *
 from unified_planning.model.operators import *
 from unified_planning.model.walkers import *
+from unified_planning.shortcuts import *
 # import translate.pddl as pddl
 
 import unified_planning
@@ -124,6 +125,68 @@ def isNumFluent(fluent):
     """
     return fluent.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]
 
+def inorderTraverseEffect(root, z3_variable, numeric_constants, step):
+    def _process_IRAOPERATIONS(effect, z3_variable, numeric_constants):
+        def __get_exp(effect, argidx):
+            # We need to evaluate the expression to get the value of the variable
+            if str(effect.value.args[argidx]) in list(numeric_constants.keys()):
+                _o1 = numeric_constants[effect.value.args[argidx]]
+            elif str(effect.value.args[argidx]) in list(z3_variable.keys()):
+                _o1 = z3_variable[effect.value.args[argidx]]
+            elif effect.value.node_type in IRA_OPERATORS:
+                return inorderTraverse(effect.value.args[1], z3_variable, numeric_constants)
+            else:
+                raise Exception("Unknown variable {}".format(effect.value.args[argidx]))
+            
+        _o1 = __get_exp(effect, 0)
+        _o2 = __get_exp(effect, 1)
+
+        if effect.value.node_type == OperatorKind.PLUS:
+            return _o1 + _o2
+        elif effect.value.node_type == OperatorKind.MINUS:
+            return _o1 - _o2
+        elif effect.value.node_type == OperatorKind.TIMES:
+            return _o1 * _o2
+        elif effect.value.node_type == OperatorKind.DIV:
+            return _o1 / _o2
+        else:
+            raise Exception("Unknown effect type {}".format(effect.kind))
+    
+    #if root is None,return
+    if isinstance(root, list):
+        effectslist = []
+        for effect in root:
+            effectslist.append(inorderTraverseEffect(effect, z3_variable, numeric_constants, step))
+        if root[0].node_type == OperatorKind.AND:
+            return z3.And(effectslist) if len(effectslist) > 1 else effectslist[0]
+        else:
+            return z3.Or(effectslist) if len(effectslist) > 1 else effectslist[0]
+    elif isinstance(root, unified_planning.model.effect.Effect):
+        if root.kind in [EffectKind.INCREASE, EffectKind.DECREASE, EffectKind.ASSIGN]:
+            operand_1 = inorderTraverseEffect(root.fluent, z3_variable, numeric_constants, step)
+            operand_2 = inorderTraverseEffect(root.value, z3_variable, numeric_constants, step)
+            if root.kind == EffectKind.INCREASE:
+                #self.numeric_variables[step+1][fluent_name] == self.numeric_variables[step][fluent_name] + add_var))
+                return z3_variable[step+1][str(root.fluent)] == operand_1 + operand_2
+            elif root.kind == EffectKind.DECREASE:
+                return z3_variable[step+1][str(root.fluent)] == operand_1 - operand_2
+            elif root.kind == EffectKind.ASSIGN:
+                return z3_variable[step+1][str(root.fluent)] == operand_1 == operand_2
+    elif isinstance(root, unified_planning.model.fnode.FNode):
+        if root.node_type in IRA_OPERATORS:
+            return _process_IRAOPERATIONS(effect)
+        elif root.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
+            if root.node_type == OperatorKind.NOT:
+                return z3.Not(z3_variable[step][str(root)])
+            else:
+                return z3_variable[step][str(root)]
+        elif str(root) in numeric_constants:
+            return numeric_constants[str(root)]
+        elif root.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
+            return z3.RealVal(str(root))
+    else:
+        raise Exception("Unknown type {}".format(type(root)))
+
 def inorderTraverse(root, z3_variable, numeric_constants, z3_touched_variables = None):
     #if root is None,return
     if isinstance(root, list):
@@ -164,26 +227,6 @@ def inorderTraverse(root, z3_variable, numeric_constants, z3_touched_variables =
             return operand_1 < operand_2
         else:
             raise Exception("Unknown relation {}".format(root.node_type))
-
-        left_expr = None
-        right_expr = None
-
-        if isinstance(operand_1, z3.z3.ArithRef) and isinstance(operand_2, z3.z3.ArithRef):
-            left_expr = operand_1
-            right_expr = operand_2
-        elif isinstance(operand_1, z3.z3.ArithRef) and isinstance(operand_2, z3.z3.RatNumRef):
-            left_expr =  z3.RealVal('0')
-            right_expr = operand_2 - operand_1
-        else:
-            left_expr = operand_1 - operand_2
-            right_expr = z3.RealVal('0') 
-
-        if root.node_type == OperatorKind.LE:
-            return left_expr <= right_expr
-        elif root.node_type == OperatorKind.LT:
-            return left_expr < right_expr
-        else:
-            raise Exception("Unknown relation {}".format(root.node_type))
     elif root.node_type in IRA_OPERATORS:
         operands = []
         for arg in root.args:
@@ -213,11 +256,6 @@ def inorderTraverse(root, z3_variable, numeric_constants, z3_touched_variables =
     elif root.node_type in [OperatorKind.BOOL_CONSTANT, OperatorKind.FLUENT_EXP]:
         if str(root) in list(numeric_constants.keys()):
             return z3.RealVal(numeric_constants[str(root)])
-        # elif z3_touched_variables is not None:
-        #     if type(z3_variable[str(root)]) == type(z3_touched_variables[str(root)]):
-        #         return z3.Or(z3_variable[str(root)], z3_touched_variables[str(root)])
-        #     else:
-        #         return z3_variable[str(root)] 
         else:
             return z3_variable[str(root)]
     elif root.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
