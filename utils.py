@@ -171,7 +171,13 @@ def inorderTraverseEffect(root, z3_variable, numeric_constants, step):
             elif root.kind == EffectKind.DECREASE:
                 return z3_variable[step+1][str(root.fluent)] == operand_1 - operand_2
             elif root.kind == EffectKind.ASSIGN:
-                return z3_variable[step+1][str(root.fluent)] == operand_1 == operand_2
+                var = inorderTraverseEffect(root.fluent, z3_variable, numeric_constants, step+1)
+                if root.value.is_true():
+                    return var
+                else:
+                    return z3.Not(var)
+
+                return inorderTraverseEffect(root, z3_variable, numeric_constants, step+1)
     elif isinstance(root, unified_planning.model.fnode.FNode):
         if root.node_type in IRA_OPERATORS:
             return _process_IRAOPERATIONS(effect)

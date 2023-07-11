@@ -243,40 +243,6 @@ class Encoder:
         
     def encodeActions(self):
 
-        def _process_IRAOPERATIONS(effect):
-            # We need to evaluate the expression to get the value of the variable
-            if str(effect.value.args[0]) in list(self.problem_constant_numerics.keys()):
-                _o1 = self.problem_constant_numerics[str(effect.value.args[0])]
-            elif str(effect.value.args[0]) in list(self.problem_z3_variables[step].keys()):
-                _o1 = self.problem_z3_variables[step][str(effect.value.args[0])]
-            elif effect.value.node_type in IRA_OPERATORS:
-                return utils.inorderTraverse(effect.value.args[1], self.problem_z3_variables[step], self.problem_constant_numerics)
-            else:
-                raise Exception("Unknown variable {}".format(effect.value.args[0]))
-            
-            if str(effect.value.args[1]) in list(self.problem_constant_numerics.keys()):
-                _o2 = self.problem_constant_numerics[str(effect.value.args[1])]
-            elif str(effect.value.args[1]) in list(self.problem_z3_variables[step].keys()):
-                _o2 = self.problem_z3_variables[step][str(effect.value.args[1])]
-            elif effect.value.node_type in IRA_OPERATORS:
-                return utils.inorderTraverse(effect.value.args[1], self.problem_z3_variables[step], self.problem_constant_numerics)
-            else:
-                raise Exception("Unknown variable {}".format(effect.value.args[1]))
-
-            if effect.value.node_type == OperatorKind.PLUS:
-                return _o1 + _o2
-            elif effect.value.node_type == OperatorKind.MINUS:
-                return _o1 - _o2
-            elif effect.value.node_type == OperatorKind.TIMES:
-                return _o1 * _o2
-            elif effect.value.node_type == OperatorKind.DIV:
-                return _o1 / _o2
-            else:
-                raise Exception("Unknown effect type {}".format(effect.kind))
-        
-
-
-
         actions = []
         new_actions = []
         for step in range(self.horizon):
@@ -285,58 +251,15 @@ class Encoder:
                 for pre in action.preconditions:
                     precondition = utils.inorderTraverse(pre, self.problem_z3_variables[step], self.problem_constant_numerics)
                     actions.append(z3.Implies(self.action_variables[step][action.name], precondition))
-                    new_actions.append(z3.Implies(self.action_variables[step][action.name], precondition))
+
                 # Append effects.
                 for effect in action.effects:
                     _eff = utils.inorderTraverseEffect(effect, self.problem_z3_variables, self.problem_constant_numerics, step)
-                    new_actions.append(z3.Implies(self.action_variables[step][action.name], _eff))
-
-                    if effect.kind == EffectKind.ASSIGN:
-                        # Check if this effect is a boolean fluent.
-                        fluent = str(effect.fluent)
-                        is_boolean_fluent = fluent in self.boolean_variables[step]
-                        if is_boolean_fluent:
-                            # get the value of the fluent to know whether to add or remove it.
-                            if effect.value.is_true():
-                                actions.append(z3.Implies(self.action_variables[step][action.name], self.boolean_variables[step+1][fluent]))
-                            else:
-                                actions.append(z3.Implies(self.action_variables[step][action.name], z3.Not(self.boolean_variables[step+1][fluent])))
-                        else:
-                            actions.append(z3.Implies(self.action_variables[step][action.name], self.numeric_variables[step+1][fluent] == effect.value))
-                    elif effect.kind in [EffectKind.INCREASE, EffectKind.DECREASE]:
-                        
-                        add_var_name = str(effect.value)
-
-                        if effect.value.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
-                            add_var = z3.RealVal(add_var_name)
-                        elif effect.value.node_type in IRA_OPERATORS:
-                            add_var = _process_IRAOPERATIONS(effect)
-                        elif add_var_name in self.problem_constant_numerics:
-                            add_var = z3.RealVal(self.problem_constant_numerics[add_var_name])
-                        else:
-                            # This is a fluent
-                            add_var = self.numeric_variables[step][add_var_name]
-
-                        fluent_name  = str(effect.fluent)
-                        if effect.kind == EffectKind.INCREASE:
-                            actions.append(z3.Implies(self.action_variables[step][action.name], self.numeric_variables[step+1][fluent_name] == self.numeric_variables[step][fluent_name] + add_var))
-                        else:
-                            actions.append(z3.Implies(self.action_variables[step][action.name], self.numeric_variables[step+1][fluent_name] == self.numeric_variables[step][fluent_name] - add_var))
-                    else:
-                        raise Exception("Unknown effect type {}".format(effect.kind))
+                    actions.append(z3.Implies(self.action_variables[step][action.name], _eff))
 
                 if len(action.conditional_effects) > 0:
                     raise Exception("Conditional effects are not supported yet")
 
-        t = actions == new_actions
-
-        # dump list to file
-        with open('actions.txt', 'w') as f:
-            for item in actions:
-                f.write("%s\n" % item)
-        with open('new_actions.txt', 'w') as f:
-            for item in new_actions:
-                f.write("%s\n" % item)
         return actions
 
     def encodeFrame(self):
