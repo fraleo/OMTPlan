@@ -73,11 +73,13 @@ def buildDTables(encoder):
                 else:
                     tmp = [encoder.boolean_variables[step-1][fluent_name],encoder.touched_variables[fluent_name]]
                 
-                tpre_rel.append(tuple(tmp))
+                if not tmp[0] == tmp[1]:
+                    tpre_rel.append(tuple(tmp))
             
             else:
-                action_precondition_expr = utils.inorderTraverse(pre, encoder.problem_z3_variables[step-1], encoder.problem_constant_numerics)
-                tmp = [action_precondition_expr]
+                # action_precondition_expr = utils.inorderTraverse(pre, encoder.problem_z3_variables[step-1], encoder.problem_constant_numerics)
+                # tmp = [action_precondition_expr]
+                tmp = []
                 for var_name in FreeVarsExtractor().get(pre):
                     tpre.append(encoder.touched_variables[str(var_name)])
                     tmp.append(encoder.touched_variables[str(var_name)])
@@ -131,6 +133,9 @@ def buildDTables(encoder):
 
     ## Remove duplicate edges
     edges = set(edges)
+
+    for ed in edges:
+        print(ed)
 
     return edges, table
 
