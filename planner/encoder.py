@@ -397,6 +397,9 @@ class EncoderSMT(Encoder):
         # initialize horizon
         self.horizon = horizon
 
+        # set the planner name.
+        self.name = "smt"
+
         # Create variables
         self.createVariables()
 

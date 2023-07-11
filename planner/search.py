@@ -82,6 +82,7 @@ class SearchSMT(Search):
             model = self.solver.model()
             self.solution = plan.Plan(model, self.encoder)
         else:
+            self.solution = []
             print('Problem not solvable')
             
         return self.solution
@@ -154,6 +155,7 @@ class SearchOMT(Search):
             # see Theorem 1 in related paper
 
             if res == unsat:
+                self.solution = []
                 print('Problem not solvable')
 
             else:

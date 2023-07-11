@@ -23,7 +23,7 @@ from unified_planning.shortcuts import *
 from unified_planning.plans import SequentialPlan
 from unified_planning.plans import ActionInstance
 from unified_planning.engines.compilers.utils import *
-
+from unified_planning.engines.results import *
 
 
 
@@ -37,6 +37,10 @@ class Plan():
         self.encoder = deepcopy(encoder)
         self.plan = self._extractPlan(model)
         self.cost = self._extractCost(objective)
+
+        self.planresults = PlanGenerationResult(PlanGenerationResultStatus.SOLVED_SATISFICING if len(self.plan.actions) > 0 else PlanGenerationResultStatus.UNSOLVABLE_INCOMPLETELY,
+                                                self.plan, 
+                                                self.encoder.name)
 
     def _extractPlan(self, model):
         """!
@@ -56,8 +60,8 @@ class Plan():
             for action in self.encoder.ground_problem.actions:
                 if is_true(model[self.encoder.action_variables[step][action.name]]):
                     plan.append(ActionInstance(action))
-        p = SequentialPlan(plan, self.encoder.ground_problem.environment)     
-        return p
+        plan = []
+        return SequentialPlan(plan, self.encoder.ground_problem.environment)
 
 
     def _extractCost(self, objective=None):
@@ -76,7 +80,7 @@ class Plan():
 
         return cost
 
-    def validate(self, val, domain, problem):
+    def validate(self):
         """!
         Validates plan (when one is found).
 
@@ -87,42 +91,14 @@ class Plan():
         @return plan: string containing plan if plan found is valid, None otherwise.
         """
 
-        from tempfile import NamedTemporaryFile
-
-        print('Validating plan...')
-
-        # Create string containing plan
-        plan_to_str = '\n'.join('{}: {}'.format(key, val) for key, val in self.plan.items())
-
-        # Create temporary file that contains plan to be
-        # fed to VAL
-        with NamedTemporaryFile(mode='w+') as temp:
-
-            temp.write(plan_to_str)
-            temp.seek(0)
-
-            # Call VAL
-
-            try:
-                output = subprocess.check_output([val, domain, problem, temp.name])
-
-            except subprocess.CalledProcessError as e:
-
-                print('Unknown error, exiting now...')
-                sys.exit()
-
-        temp.close()
-
-        # Prepare output depending on validation results
-
-        plan = None
-
-        if 'Plan valid' in output:
-            plan = plan_to_str
-            return plan
-        else:
-            return plan
-
+        # TODO: Valdiate using unified planning
+        pass
+        # with PlanValidator(problem_kind=self.encoder.task.kind, plan_kind=self.plan) as validator:
+        #     if validator.validate(self.encoder.task, self.planresults):
+        #         print('The plan is valid')
+        #     else:
+        #         print('The plan is invalid')
+        
 
     def pprint(self, dest):
         """!

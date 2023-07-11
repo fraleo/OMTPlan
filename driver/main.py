@@ -95,15 +95,9 @@ def main(BASE_DIR):
     val = BASE_DIR+val_path
 
     if not args.translate:
-        pass
+        plan.validate()
 
-        # TODO: Valdiate using unified planning
-        extracted_plan = deepcopy(plan.plan)
-        with PlanValidator(problem_kind=task.kind) as validator:
-            if validator.validate(task, extracted_plan):
-                print('The plan is valid')
-            else:
-                print('The plan is invalid')
+        
 
         # print("Use unified planning to validate plan")
 
