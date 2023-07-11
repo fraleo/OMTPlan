@@ -163,15 +163,16 @@ class Encoder:
 
         """
         
-        boolean_fluents = [f for f in self.ground_problem.fluents if f.type.is_bool_type()]
-        for step in range(self.horizon+1):
-            for fluent in boolean_fluents:
-                self.boolean_variables[step][fluent.name] = z3.Bool('{}_{}'.format(fluent.name,step))
-                self.problem_z3_variables[step][fluent.name] = z3.Bool('{}_{}'.format(fluent.name,step))
-
-        
         # MF: I hate this but the only way to get the function and its variable through parsing the initial values for the 
         # numeric fluents.
+
+        boolean_fluents = [f for f in self.ground_problem.initial_values if f.type.is_bool_type()]
+        for step in range(self.horizon+1):
+            for fluent in boolean_fluents:
+                fluentname = str(fluent)
+                self.boolean_variables[step][fluentname] = z3.Bool('{}_{}'.format(fluentname,step))
+                self.problem_z3_variables[step][fluentname] = z3.Bool('{}_{}'.format(fluentname,step))
+        
         numeric_fluents = [f for f in self.ground_problem.initial_values if f.type.is_int_type() or f.type.is_real_type()]
 
         # The grounder does not replace the constants in the problem, therefore we can do that by listing the 
@@ -187,7 +188,8 @@ class Encoder:
         # Get the values for those constants to replace them in the problem.
         self.problem_constant_numerics = {}
         for fluent in constant_fluents:
-            self.problem_constant_numerics[str(fluent)] = self.ground_problem.initial_values[fluent]
+            # A hacky way to ge the value of the constant.
+            self.problem_constant_numerics[str(fluent)] = float(str(self.ground_problem.initial_values[fluent]))
 
         # Now create z3 variables for the numeric fluents.
         for step in range(self.horizon+1):
@@ -246,8 +248,10 @@ class Encoder:
                 # Append preconditions
                 for pre in action.preconditions:
                     if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
-                        fluent_name = str(pre.args[0])
+                        fluent_name = str(pre)
                         if pre.node_type == OperatorKind.NOT:
+                            # This is a hacky way to remove the not ( ) from the string to get the fluent name
+                            fluent_name = str(pre).replace("(not ","").replace(")","")
                             actions.append(z3.Implies(self.action_variables[step][action.name], z3.Not(self.boolean_variables[step][fluent_name])))
                         else:
                             actions.append(z3.Implies(self.action_variables[step][action.name], self.boolean_variables[step][fluent_name]))
@@ -294,7 +298,25 @@ class Encoder:
 
                         if effect.value.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
                             add_var = z3.RealVal(add_var_name)
+                        elif effect.value.node_type in IRA_OPERATORS:
+                            # We need to evaluate the expression to get the value of the variable
+                            _o1 = self.problem_constant_numerics[str(effect.value.args[0])]
+                            _o2 = self.problem_constant_numerics[str(effect.value.args[1])]
+
+                            if effect.value.node_type == OperatorKind.PLUS:
+                                add_var = z3.RealVal(_o1 + _o2)
+                            elif effect.value.node_type == OperatorKind.MINUS:
+                                add_var = z3.RealVal(_o1 - _o2)
+                            elif effect.value.node_type == OperatorKind.TIMES:
+                                add_var = z3.RealVal(_o1 * _o2)
+                            elif effect.value.node_type == OperatorKind.DIV:
+                                add_var = z3.RealVal(_o1 / _o2)
+                            else:
+                                raise Exception("Unknown effect type {}".format(effect.kind))
+                        elif add_var_name in self.problem_constant_numerics:
+                            add_var = z3.RealVal(self.problem_constant_numerics[add_var_name])
                         else:
+                            # This is a fluent
                             add_var = self.numeric_variables[step][add_var_name]
 
                         if effect.kind == EffectKind.INCREASE:
@@ -329,8 +351,8 @@ class Encoder:
             # Encode frame axioms for boolean fluents
             for fluent in self.all_problem_fluents:
                 if fluent.type.is_bool_type():
-                    fluent_pre  = self.boolean_variables[step].get(fluent.name, sentinel)
-                    fluent_post = self.boolean_variables[step+1].get(fluent.name, sentinel)
+                    fluent_pre  = self.boolean_variables[step].get(str(fluent), sentinel)
+                    fluent_post = self.boolean_variables[step+1].get(str(fluent), sentinel)
                     # Encode frame axioms only if atoms have SMT variables associated
                     if fluent_pre is not sentinel and fluent_post is not sentinel:
                         action_add = []
@@ -340,7 +362,7 @@ class Encoder:
                             effects_fluents = [effect for effect in action.effects if effect.value.type.is_bool_type()]
                             
                             for ele in effects_fluents:
-                                if str(ele.fluent) == fluent.name:
+                                if str(ele.fluent) == str(fluent):
                                     if ele.value.is_true():
                                         action_add.append(self.action_variables[step][action.name])
                                     else:
@@ -442,19 +464,17 @@ class EncoderOMT(Encoder):
         @return objective: objective function.
         """
 
-        if self.task.metric:
-             objective = utils.buildMetricExpr(self)
-
+        objective = None
+        if len(self.ground_problem.quality_metrics) > 0:
+            objective = deepcopy(self.ground_problem.quality_metrics)
         else:
             objective = []
             for step in range(self.horizon):
                 for action in self.action_variables[step].values():
-                    objective.append(If(action,1.0,0.0))
-
+                    objective.append(z3.If(action,1.0,0.0))
             objective = sum(objective)
-
         return objective
-
+        
     def createAuxVariables(self):
         """
         Creates auxiliary variables used in relaxed suffix (see related paper).
@@ -467,11 +487,11 @@ class EncoderOMT(Encoder):
         step = self.horizon + 1
 
         for var_name in self.boolean_variables[0].keys():
-            self.touched_variables[var_name] = Bool('t{}_{}'.format(var_name,self.horizon+1))
+            self.touched_variables[var_name] = z3.Bool('t{}_{}'.format(var_name,self.horizon+1))
 
         for var_name in self.numeric_variables[0].keys():
             if not var_name in self.var_objective:
-                self.touched_variables[var_name] = Bool('t{}_{}'.format(var_name,self.horizon+1))
+                self.touched_variables[var_name] = z3.Bool('t{}_{}'.format(var_name,self.horizon+1))
 
         # create sets of relaxed action variables for
         # steps n, n+1
@@ -480,8 +500,15 @@ class EncoderOMT(Encoder):
 
         for step in range(self.horizon,self.horizon+2):
             for action in self.actions:
-                self.auxiliary_actions[step][action.name] = Bool('{}_{}'.format(action.name,step))
+                self.auxiliary_actions[step][action.name] = z3.Bool('{}_{}'.format(action.name,step))
+        
 
+        print(self.touched_variables[var_name])
+        print(self.auxiliary_actions[0][action.name])
+        exit()
+
+
+    # Needs fixing
     def encodeRelaxedActions(self):
         """!
         Encodes relaxed universal axioms.
@@ -921,6 +948,9 @@ class EncoderOMT(Encoder):
 
         self.horizon = horizon
 
+        # set the planner name.
+        self.name = "omt"
+
         # Create variables
         self.createVariables()
 
@@ -948,6 +978,7 @@ class EncoderOMT(Encoder):
         # Encode relaxed suffix
         #
 
+        # Remove this for now.
         self.var_objective = utils.parseMetric(self)
 
         # Create auxiliary variables

@@ -21,6 +21,7 @@ import os
 import re
 from z3 import *
 from unified_planning.model.operators import *
+from unified_planning.model.walkers import *
 # import translate.pddl as pddl
 
 import unified_planning
@@ -211,9 +212,71 @@ def inorderTraverse(root, z3_variable, numeric_constants):
     else:
         raise Exception("Unknown operator {}".format(root.node_type))
 
+def parseMetric(encoder):
+    """!
+    Extracts variables appearing in PDDL metric.
 
+    @param encoder.
+    @return var_names: list of fluents used in the mertic.
 
+    """
+    metric = encoder.ground_problem.quality_metrics
+    var_names = set()
+    extractor = NamesExtractor()
+    for exp in metric:
+        for f in extractor.extract_names(exp.expression):
+            var_names.add(f)
+    return list(var_names)
+    
 # TODO: We need to fix this.
+def buildMetricExpr(encoder):
+    """!
+    Builds Z3 expression of PDDL metric.
+
+    @param encoder: encoder object.
+    @return metricExpr: Z3 expression encoding metric.
+    """
+
+    metric = encoder.task.metric[1]
+    fluents = encoder.numeric_variables[encoder.horizon]
+
+    def inorderTraversal(metric):
+        op = metric[0]
+
+        if op in ['+','-','*','/']:
+            l_expr = inorderTraversal(metric[1])
+
+            r_expr = inorderTraversal(metric[2])
+
+            if op == '+':
+                return l_expr + r_expr
+            elif op == '-':
+                return l_expr - r_expr
+            elif op == '*':
+                return l_expr * r_expr
+            elif op == '/':
+                return l_expr / r_expr
+            else:
+                raise Exception('Operator not recognized')
+        else:
+            if isinstance(metric,basestring):
+                return float(metric)
+
+            else:
+                return fluents['_'.join(metric)]
+
+
+    if len(metric) == 1:
+        metricExpr =  fluents[metric[0]]
+    else:
+        metricExpr = inorderTraversal(metric)
+
+    return  metricExpr
+
+
+
+
+# TODO: We need to delete this.
 def inorderTraversal(encoder,nax, numeric_variables):
         """!
         Traverses the parsed domain as returned by TFD parser:
@@ -313,7 +376,7 @@ def inorderTraversal(encoder,nax, numeric_variables):
                 return l_expr / r_expr
             else:
                 raise Exception('Operator not recognized')
-# TODO: We need to fix this.
+# TODO: We need to delete this.
 def inorderTraversalFC(encoder,condition, numeric_variables):
         """!
             Inorder traversal for Comparison axioms -- see "Using the Context-enhanced Additive Heuristic for Temporal and Numeric Planning", Eyerich et al.
@@ -362,7 +425,7 @@ def inorderTraversalFC(encoder,condition, numeric_variables):
             return l_expr >= r_expr
         else:
             raise Exception('Comparator not recognized')
-
+# TODO: We need to delete this.
 def extractVariables(encoder,nax,variables):
         """!
         Extracts variables contained in PDDL numeric expressions.
@@ -426,9 +489,7 @@ def extractVariables(encoder,nax,variables):
 
             else:
                 extractVariables(encoder,encoder.axioms_by_name[nax.parts[1]],variables)
-
-
-
+# TODO: We need to delete this.
 def extractVariablesFC(encoder,condition):
     """!
     Extracts variables contained in PDDL comparison axioms.
@@ -461,87 +522,6 @@ def extractVariablesFC(encoder,condition):
     return variables
 
 
-def parseMetric(encoder):
-    """!
-    Extracts variables appearing in PDDL metric.
-
-    @param encoder.
-    @return var_names: list of Z3 variables.
-
-    """
-
-    var_names = []
-
-    def inorderTraversal(metric):
-        op = metric[0]
-
-        if op in ['+','-','*','/']:
-            l_expr = inorderTraversal(metric[1])
-
-            r_expr = inorderTraversal(metric[2])
-
-            return
-        else:
-            if isinstance(metric,basestring):
-                return float(metric)
-
-            else:
-                var_names.append('_'.join(metric))
-                return
-
-    if encoder.task.metric:
-        metric = encoder.task.metric[1]
-
-        if len(metric) == 1:
-            var_names.append(metric[0])
-        else:
-            inorderTraversal(metric)
-
-    return var_names
-
-def buildMetricExpr(encoder):
-    """!
-    Builds Z3 expression of PDDL metric.
-
-    @param encoder: encoder object.
-    @return metricExpr: Z3 expression encoding metric.
-    """
-
-    metric = encoder.task.metric[1]
-    fluents = encoder.numeric_variables[encoder.horizon]
-
-    def inorderTraversal(metric):
-        op = metric[0]
-
-        if op in ['+','-','*','/']:
-            l_expr = inorderTraversal(metric[1])
-
-            r_expr = inorderTraversal(metric[2])
-
-            if op == '+':
-                return l_expr + r_expr
-            elif op == '-':
-                return l_expr - r_expr
-            elif op == '*':
-                return l_expr * r_expr
-            elif op == '/':
-                return l_expr / r_expr
-            else:
-                raise Exception('Operator not recognized')
-        else:
-            if isinstance(metric,basestring):
-                return float(metric)
-
-            else:
-                return fluents['_'.join(metric)]
-
-
-    if len(metric) == 1:
-        metricExpr =  fluents[metric[0]]
-    else:
-        metricExpr = inorderTraversal(metric)
-
-    return  metricExpr
 
 
 def printSMTFormula(formula,problem_name):

@@ -60,7 +60,6 @@ class Plan():
             for action in self.encoder.ground_problem.actions:
                 if is_true(model[self.encoder.action_variables[step][action.name]]):
                     plan.append(ActionInstance(action))
-        plan = []
         return SequentialPlan(plan, self.encoder.ground_problem.environment)
 
 
@@ -90,9 +89,9 @@ class Plan():
 
         @return plan: string containing plan if plan found is valid, None otherwise.
         """
-
+        print(self.plan)
         # TODO: Valdiate using unified planning
-        pass
+        print("plan validation using unified planning is not implemented yet")
         # with PlanValidator(problem_kind=self.encoder.task.kind, plan_kind=self.plan) as validator:
         #     if validator.validate(self.encoder.task, self.planresults):
         #         print('The plan is valid')
