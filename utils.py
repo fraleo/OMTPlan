@@ -149,6 +149,13 @@ def inorderTraverse(root, z3_variable, numeric_constants):
         operand_1 = inorderTraverse(root.args[0], z3_variable, numeric_constants)
         operand_2 = inorderTraverse(root.args[1], z3_variable, numeric_constants)
 
+        if root.node_type == OperatorKind.LE:
+            return operand_1 <= operand_2
+        elif root.node_type == OperatorKind.LT:
+            return operand_1 < operand_2
+        else:
+            raise Exception("Unknown relation {}".format(root.node_type))
+
         left_expr = None
         right_expr = None
 

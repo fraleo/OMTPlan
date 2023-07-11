@@ -60,17 +60,13 @@
 (assert
  (=> decrement_rate_c1_0 (= |rate_value(c1)_1| (- |rate_value(c1)_0| |1|))))
 (assert
- (let (($x86 (= |value(c0)_1| |value(c0)_0|)))
- (or $x86 (or increment_c0_0 decrement_c0_0))))
+ (or (= |value(c0)_1| |value(c0)_0|) (or increment_c0_0 decrement_c0_0)))
 (assert
- (let (($x89 (= |value(c1)_1| |value(c1)_0|)))
- (or $x89 (or increment_c1_0 decrement_c1_0))))
+ (or (= |value(c1)_1| |value(c1)_0|) (or increment_c1_0 decrement_c1_0)))
 (assert
- (let (($x92 (= |rate_value(c0)_1| |rate_value(c0)_0|)))
- (or $x92 (or increase_rate_c0_0 decrement_rate_c0_0))))
+ (or (= |rate_value(c0)_1| |rate_value(c0)_0|) (or increase_rate_c0_0 decrement_rate_c0_0)))
 (assert
- (let (($x95 (= |rate_value(c1)_1| |rate_value(c1)_0|)))
- (or $x95 (or increase_rate_c1_0 decrement_rate_c1_0))))
+ (or (= |rate_value(c1)_1| |rate_value(c1)_0|) (or increase_rate_c1_0 decrement_rate_c1_0)))
 (assert
  ((_ at-most 1) increment_c0_0 increment_c1_0 decrement_c0_0 decrement_c1_0 increase_rate_c0_0 increase_rate_c1_0 decrement_rate_c0_0 decrement_rate_c1_0))
 (check-sat)

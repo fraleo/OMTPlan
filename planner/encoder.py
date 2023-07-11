@@ -128,9 +128,6 @@ class Encoder:
             for action_2 in self.ground_problem.actions:
                 if not action_1.name == action_2.name:
                   
-                    if action_1.name == 'authorize_d1_l1' and action_2.name == 'authorize_d1_l2':
-                        print("debug")
-
                     add_a2, del_a2 = get_add_del_effects(action_2)
                     num_2 = get_numeric_effects(action_2)
                     pre_2 = get_preconditions(action_2)
@@ -201,11 +198,10 @@ class Encoder:
 
         self.all_problem_fluents.extend(boolean_fluents)
         self.all_problem_fluents.extend(numeric_fluents)
-        
+
         for step in range(self.horizon+1):
             for action in self.ground_problem.actions:
                 self.action_variables[step][action.name] = z3.Bool('{}_{}'.format(action.name,step))
-
         
     def encodeInitialState(self):
         """!
