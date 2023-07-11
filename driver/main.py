@@ -98,12 +98,12 @@ def main(BASE_DIR):
         pass
 
         # TODO: Valdiate using unified planning
-        # extracted_plan = deepcopy(plan.plan)
-        # with PlanValidator(problem_kind=task.kind) as validator:
-        #     if validator.validate(task, extracted_plan):
-        #         print('The plan is valid')
-        #     else:
-        #         print('The plan is invalid')
+        extracted_plan = deepcopy(plan.plan)
+        with PlanValidator(problem_kind=task.kind) as validator:
+            if validator.validate(task, extracted_plan):
+                print('The plan is valid')
+            else:
+                print('The plan is invalid')
 
         # print("Use unified planning to validate plan")
 

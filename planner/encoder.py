@@ -293,7 +293,7 @@ class Encoder:
                         add_var_name = str(effect.value)
 
                         if effect.value.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
-                            add_var = z3.Real(add_var_name)
+                            add_var = z3.RealVal(add_var_name)
                         else:
                             add_var = self.numeric_variables[step][add_var_name]
 

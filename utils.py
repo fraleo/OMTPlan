@@ -144,7 +144,7 @@ def inorderTraverse(root, z3_variable, numeric_constants):
     elif root.node_type == OperatorKind.EQUALS:
         operand_1 = inorderTraverse(root.args[0], z3_variable, numeric_constants)
         operand_2 = inorderTraverse(root.args[1], z3_variable, numeric_constants)
-        return operand_1 - operand_2 == z3.RealVal('0')
+        return operand_1 - operand_2 == z3.RealVal(0)
     elif root.node_type in IRA_RELATIONS:
         operand_1 = inorderTraverse(root.args[0], z3_variable, numeric_constants)
         operand_2 = inorderTraverse(root.args[1], z3_variable, numeric_constants)
@@ -203,11 +203,11 @@ def inorderTraverse(root, z3_variable, numeric_constants):
         return z3.Not(z3_variable[str(root.args[0])])
     elif root.node_type in [OperatorKind.BOOL_CONSTANT, OperatorKind.FLUENT_EXP]:
         if str(root) in list(numeric_constants.keys()):
-            return z3.Real(str(numeric_constants[str(root)]))
+            return z3.RealVal(numeric_constants[str(root)])
         else:
             return z3_variable[str(root)]
     elif root.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
-        return z3.RealVal(str(root))
+        return z3.RealVal(root)
     else:
         raise Exception("Unknown operator {}".format(root.node_type))
 

@@ -11,7 +11,6 @@
 (declare-fun decrement_c0_0 () Bool)
 (declare-fun decrement_c1_0 () Bool)
 (declare-fun increase_rate_c0_0 () Bool)
-(declare-fun |1| () Real)
 (declare-fun |rate_value(c0)_1| () Real)
 (declare-fun increase_rate_c1_0 () Bool)
 (declare-fun |rate_value(c1)_1| () Real)
@@ -46,19 +45,19 @@
 (assert
  (=> increase_rate_c0_0 (>= 10.0 (+ |rate_value(c0)_0| 1.0))))
 (assert
- (=> increase_rate_c0_0 (= |rate_value(c0)_1| (+ |rate_value(c0)_0| |1|))))
+ (=> increase_rate_c0_0 (= |rate_value(c0)_1| (+ |rate_value(c0)_0| 1.0))))
 (assert
  (=> increase_rate_c1_0 (>= 10.0 (+ |rate_value(c1)_0| 1.0))))
 (assert
- (=> increase_rate_c1_0 (= |rate_value(c1)_1| (+ |rate_value(c1)_0| |1|))))
+ (=> increase_rate_c1_0 (= |rate_value(c1)_1| (+ |rate_value(c1)_0| 1.0))))
 (assert
  (=> decrement_rate_c0_0 (<= 1.0 |rate_value(c0)_0|)))
 (assert
- (=> decrement_rate_c0_0 (= |rate_value(c0)_1| (- |rate_value(c0)_0| |1|))))
+ (=> decrement_rate_c0_0 (= |rate_value(c0)_1| (- |rate_value(c0)_0| 1.0))))
 (assert
  (=> decrement_rate_c1_0 (<= 1.0 |rate_value(c1)_0|)))
 (assert
- (=> decrement_rate_c1_0 (= |rate_value(c1)_1| (- |rate_value(c1)_0| |1|))))
+ (=> decrement_rate_c1_0 (= |rate_value(c1)_1| (- |rate_value(c1)_0| 1.0))))
 (assert
  (or (= |value(c0)_1| |value(c0)_0|) (or increment_c0_0 decrement_c0_0)))
 (assert
