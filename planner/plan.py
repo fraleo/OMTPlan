@@ -92,11 +92,11 @@ class Plan():
         print(self.plan)
         # TODO: Valdiate using unified planning
         print("plan validation using unified planning is not implemented yet")
-        # with PlanValidator(problem_kind=self.encoder.task.kind, plan_kind=self.plan) as validator:
-        #     if validator.validate(self.encoder.task, self.planresults):
-        #         print('The plan is valid')
-        #     else:
-        #         print('The plan is invalid')
+        with PlanValidator(problem_kind=self.encoder.task.kind, plan_kind=self.plan) as validator:
+            if validator.validate(self.encoder.task, self.planresults):
+                print('The plan is valid')
+            else:
+                print('The plan is invalid')
         
 
     def pprint(self, dest):

@@ -129,25 +129,25 @@ def inorderTraverseEffect(root, z3_variable, numeric_constants, step):
     def _process_IRAOPERATIONS(effect, z3_variable, numeric_constants):
         def __get_exp(effect, argidx):
             # We need to evaluate the expression to get the value of the variable
-            if str(effect.value.args[argidx]) in list(numeric_constants.keys()):
-                _o1 = numeric_constants[effect.value.args[argidx]]
-            elif str(effect.value.args[argidx]) in list(z3_variable.keys()):
-                _o1 = z3_variable[effect.value.args[argidx]]
-            elif effect.value.node_type in IRA_OPERATORS:
-                return inorderTraverse(effect.value.args[1], z3_variable, numeric_constants)
+            if str(effect.args[argidx]) in list(numeric_constants.keys()):
+                return numeric_constants[str(effect.args[argidx])]
+            elif str(effect.args[argidx]) in list(z3_variable.keys()):
+                return z3_variable[str(effect.args[argidx])]
+            elif effect.node_type in IRA_OPERATORS:
+                return inorderTraverse(effect.args[1], z3_variable, numeric_constants)
             else:
-                raise Exception("Unknown variable {}".format(effect.value.args[argidx]))
+                raise Exception("Unknown variable {}".format(str(effect.args[argidx])))
             
         _o1 = __get_exp(effect, 0)
         _o2 = __get_exp(effect, 1)
 
-        if effect.value.node_type == OperatorKind.PLUS:
+        if effect.node_type == OperatorKind.PLUS:
             return _o1 + _o2
-        elif effect.value.node_type == OperatorKind.MINUS:
+        elif effect.node_type == OperatorKind.MINUS:
             return _o1 - _o2
-        elif effect.value.node_type == OperatorKind.TIMES:
+        elif effect.node_type == OperatorKind.TIMES:
             return _o1 * _o2
-        elif effect.value.node_type == OperatorKind.DIV:
+        elif effect.node_type == OperatorKind.DIV:
             return _o1 / _o2
         else:
             raise Exception("Unknown effect type {}".format(effect.kind))
@@ -176,11 +176,9 @@ def inorderTraverseEffect(root, z3_variable, numeric_constants, step):
                     return var
                 else:
                     return z3.Not(var)
-
-                return inorderTraverseEffect(root, z3_variable, numeric_constants, step+1)
     elif isinstance(root, unified_planning.model.fnode.FNode):
         if root.node_type in IRA_OPERATORS:
-            return _process_IRAOPERATIONS(effect)
+            return _process_IRAOPERATIONS(root, z3_variable[step], numeric_constants)
         elif root.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
             if root.node_type == OperatorKind.NOT:
                 return z3.Not(z3_variable[step][str(root)])
