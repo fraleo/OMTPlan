@@ -23,14 +23,8 @@ from z3 import *
 from unified_planning.model.operators import *
 from unified_planning.model.walkers import *
 from unified_planning.shortcuts import *
-# import translate.pddl as pddl
 
 import unified_planning
-
-try:
-    basestring
-except NameError:
-    basestring = str
 
 def getValFromModel(assignment):
     """!

@@ -423,9 +423,6 @@ class EncoderOMT(Encoder):
 
         for var_name in self.numeric_variables[0].keys():
             self.touched_variables[var_name] = z3.Bool('t{}_{}'.format(var_name,self.horizon+1))
-            # I don't think this is right.
-            # if not var_name in self.var_objective:
-            #     self.touched_variables[var_name] = z3.Bool('t{}_{}'.format(var_name,self.horizon+1))
 
         # create sets of relaxed action variables for
         # steps n, n+1
@@ -512,36 +509,8 @@ class EncoderOMT(Encoder):
         for action in self.ground_problem.actions:
             # Append preconditions
             for pre in action.preconditions:
-                if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
-                    fluent_name = str(pre)
-                    if pre.node_type == OperatorKind.NOT:
-                        # This is a hacky way to remove the not ( ) from the string to get the fluent name
-                        fluent_name = str(pre).replace("(not ","").replace(")","")
-                        relax.append(z3.Implies(self.auxiliary_actions[step][action.name], z3.Not(self.boolean_variables[step][fluent_name])))
-                    else:
-                        relax.append(z3.Implies(self.auxiliary_actions[step][action.name], self.boolean_variables[step][fluent_name]))
-                
-                elif pre.node_type in IRA_RELATIONS:
-                    action_precondition_expr = utils.inorderTraverse(pre, self.problem_z3_variables, step, self.problem_constant_numerics)
-                    relax.append(z3.Implies(self.auxiliary_actions[step][action.name], action_precondition_expr))
-
-                elif pre.node_type in [OperatorKind.AND, OperatorKind.OR]:
-                    operand_list = []
-                    for arg in pre.args:
-                        if arg.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
-                            if arg.node_type == OperatorKind.NOT:
-                                operand_list.append(z3.Not(self.boolean_variables[step][str(arg.args[0])]))
-                            else:
-                                operand_list.append(self.boolean_variables[step][str(arg)])
-                        elif arg.node_type in IRA_RELATIONS:
-                            operand_list.append(utils.inorderTraverse(arg, self.problem_z3_variables, step, self.problem_constant_numerics))
-                        else:
-                            raise Exception("Unknown precondition type {}".format(arg.node_type))
-                    
-                    for ele in operand_list:
-                        relax.append(z3.Implies(self.auxiliary_actions[step][action.name], ele))
-                else:
-                    raise Exception("Unknown precondition type {}".format(pre.node_type))
+                precondition = utils.inorderTraverse(pre, self.problem_z3_variables, step, self.problem_constant_numerics)
+                relax.append(z3.Implies(self.auxiliary_actions[step][action.name], precondition))
                                 
             # Append effects.
             for effect in action.effects:
