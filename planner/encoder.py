@@ -488,7 +488,6 @@ class EncoderOMT(Encoder):
 
         return c
 
-    # Maybe not sure if it needs a fix or not.
     def encodeRelaxedActions(self):
         """!
         Encodes relaxed universal axioms.
@@ -498,12 +497,10 @@ class EncoderOMT(Encoder):
 
         # dictionary used to store variables corresponding to concrete costs
         # at last step n
-
         self.final_costs = defaultdict(list)
 
         # list of relaxed universal axioms
         relax = []
-
         step = self.horizon
 
         for action in self.ground_problem.actions:
@@ -514,24 +511,53 @@ class EncoderOMT(Encoder):
                                 
             # Append effects.
             for effect in action.effects:
-                if effect.kind == EffectKind.ASSIGN:
-                    # Check if this effect is a boolean fluent.
-                    fluent = str(effect.fluent)
-                    is_boolean_fluent = fluent in self.touched_variables
-                    if is_boolean_fluent:
-                        # get the value of the fluent to know whether to add or remove it.
-                        if effect.value.is_true():
-                            relax.append(z3.Implies(self.auxiliary_actions[step][action.name], self.touched_variables[fluent]))
-                        else:
-                            relax.append(z3.Implies(self.auxiliary_actions[step][action.name], z3.Not(self.touched_variables[fluent])))
-                elif effect.kind in [EffectKind.INCREASE, EffectKind.DECREASE]:
-                    # This relaxed version only implies the touched variables.
-                    fluent_name  = str(effect.fluent)
-                    relax.append(z3.Implies(self.auxiliary_actions[step][action.name], self.touched_variables[fluent_name]))
-                else:
-                    raise Exception("Unknown effect type {}".format(effect.kind))
-
+                if str(effect.fluent) in self.touched_variables:
+                    relax.append(z3.Implies(self.auxiliary_actions[step][action.name], self.touched_variables[str(effect.fluent)]))
+                
         return relax
+
+    def encodeASAP(self):
+        """!
+        Encodes constraints that push execution of actions as early as possible.
+
+        @return list of Z3 formulas.
+        """
+        # ASAP constraint are enforced both for concrete and relaxed actions
+        all_actions  = self.action_variables.copy()
+        all_actions.update(self.auxiliary_actions)
+
+
+        c = []
+
+        for step in range(self.horizon+1):
+            for action in self.ground_problem.actions:
+                # Condition 1: action already executed at
+                # previous step
+                act_pre = all_actions[step][action.name]
+
+                # Condition 2: one of the prec of action was violated
+                violated = []
+
+                # Append preconditions
+                for pre in action.preconditions:
+                    precondition = utils.inorderTraverse(pre, self.problem_z3_variables, step, self.problem_constant_numerics)
+                    violated.append(z3.Not(precondition))
+            
+                # Condition 3: a mutex was executed a previous step
+                # return all actions that are in mutex with the
+                # current action
+                mutex = [(lambda t:  t[1] if t[0] == action else t[0])(t) for t in self.mutexes if action in t]
+                # fetch action variable
+                mutex_vars = [all_actions[step][a.name] for a in mutex]
+
+                # ASAP constraint
+                act_post = all_actions[step+1][action.name]
+                c.append(z3.Implies(act_post, z3.Or(act_pre, z3.Or(violated), z3.Or(mutex_vars))))
+
+        return c
+
+
+
     # This needs a fix.
     def encodeTransitiveClosure(self):
         """!
@@ -660,63 +686,9 @@ class EncoderOMT(Encoder):
 
 
         return trac
-    # This needs a fix.
-    def encodeASAP(self):
-        """!
-        Encodes constraints that push execution of actions as early as possible.
-
-        @return list of Z3 formulas.
-        """
-        return 
-        # ASAP constraint are enforced both for concrete and relaxed actions
-        all_actions  = self.action_variables.copy()
-        all_actions.update(self.auxiliary_actions)
-
-
-        c = []
-
-        for step in range(self.horizon+1):
-            for action in self.actions:
-                # Condition 1: action already executed at
-                # previous step
-
-                act_pre = all_actions[step][action.name]
-
-                # Condition 2: one of the prec of action was violated
-                violated = []
-
-                for pre in action.condition:
-                    if utils.isBoolFluent(pre):
-                        var_name = utils.varNameFromBFluent(pre)
-                        if pre.negated:
-                            violated.append(self.boolean_variables[step][var_name])
-                        else:
-                            violated.append(z3.Not(self.boolean_variables[step][var_name]))
-
-                    elif isinstance(pre, pddl.conditions.FunctionComparison):
-                        expr = utils.inorderTraversalFC(self,pre,self.numeric_variables[step])
-                        violated.append(z3.Not(expr))
-
-                    else:
-                        raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre,type(pre)))
-
-
-                # Condition 3: a mutex was executed a previous step
-
-                # return all actions that are in mutex with the
-                # current action
-                mutex = [(lambda t:  t[1] if t[0] == action else t[0])(t) for t in self.mutexes if action in t]
-                # fetch action variable
-                mutex_vars = [all_actions[step][a.name] for a in mutex]
-
-                # ASAP constraint
-
-                act_post = all_actions[step+1][action.name]
-
-                c.append(z3.Implies(act_post, z3.Or( act_pre, z3.Or(violated), z3.Or(mutex_vars))))
-
-        return c
-
+    
+    
+    
 
     def encode(self,horizon):
         """!

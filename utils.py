@@ -78,15 +78,15 @@ def inorderTraverse(root, z3_variable, step, numeric_constants, z3_touched_varia
             return z3.Or(subgoals) if len(subgoals) > 1 else subgoals[0]
     elif isinstance(root, unified_planning.model.effect.Effect):
         if root.kind in [EffectKind.INCREASE, EffectKind.DECREASE, EffectKind.ASSIGN]:
-            operand_1 = inorderTraverse(root.fluent, z3_variable, step, numeric_constants)
-            operand_2 = inorderTraverse(root.value,  z3_variable, step, numeric_constants)
+            operand_1 = inorderTraverse(root.fluent, z3_variable, step, numeric_constants, z3_touched_variables)
+            operand_2 = inorderTraverse(root.value,  z3_variable, step, numeric_constants, z3_touched_variables)
             if root.kind == EffectKind.INCREASE:
                 #self.numeric_variables[step+1][fluent_name] == self.numeric_variables[step][fluent_name] + add_var))
                 return z3_variable[step+1][str(root.fluent)] == operand_1 + operand_2
             elif root.kind == EffectKind.DECREASE:
                 return z3_variable[step+1][str(root.fluent)] == operand_1 - operand_2
             elif root.kind == EffectKind.ASSIGN:
-                var = inorderTraverse(root.fluent, z3_variable, step+1, numeric_constants)
+                var = inorderTraverse(root.fluent, z3_variable, step+1, numeric_constants, z3_touched_variables)
                 return var if root.value.is_true() else z3.Not(var)
     elif isinstance(root, unified_planning.model.fnode.FNode):
         if root.node_type in [OperatorKind.AND, OperatorKind.OR]:
@@ -158,6 +158,8 @@ def inorderTraverse(root, z3_variable, step, numeric_constants, z3_touched_varia
             raise Exception("Unknown operator {}".format(root.node_type))
     else:
         raise Exception("Unknown operator {}".format(root.node_type))
+
+
 
 
 def parseMetric(encoder):
