@@ -89,11 +89,12 @@ class Plan():
 
         @return plan: string containing plan if plan found is valid, None otherwise.
         """
-        print(self.plan)
+        
         # TODO: Valdiate using unified planning
         print("plan validation using unified planning is not implemented yet")
+        return 
         with PlanValidator(problem_kind=self.encoder.task.kind, plan_kind=self.plan) as validator:
-            if validator.validate(self.encoder.task, self.planresults):
+            if validator.validate(self.encoder.task.ground_problem, self.planresults):
                 print('The plan is valid')
             else:
                 print('The plan is invalid')

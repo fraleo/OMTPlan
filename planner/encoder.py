@@ -239,7 +239,7 @@ class Encoder:
 
         @return goal: Z3 formula asserting propositional and numeric subgoals
         """
-        return utils.inorderTraverse(self.ground_problem.goals, self.problem_z3_variables[self.horizon], self.problem_constant_numerics)
+        return utils.inorderTraverse(self.ground_problem.goals, self.problem_z3_variables, self.horizon, self.problem_constant_numerics)
         
     def encodeActions(self):
 
@@ -249,14 +249,14 @@ class Encoder:
             for action in self.ground_problem.actions:
                 # Append preconditions
                 for pre in action.preconditions:
-                    precondition = utils.inorderTraverse(pre, self.problem_z3_variables[step], self.problem_constant_numerics)
+                    precondition = utils.inorderTraverse(pre, self.problem_z3_variables, step, self.problem_constant_numerics)
                     actions.append(z3.Implies(self.action_variables[step][action.name], precondition))
 
                 # Append effects.
                 for effect in action.effects:
-                    _eff = utils.inorderTraverseEffect(effect, self.problem_z3_variables, self.problem_constant_numerics, step)
+                    _eff = utils.inorderTraverse(effect, self.problem_z3_variables, step, self.problem_constant_numerics)
                     actions.append(z3.Implies(self.action_variables[step][action.name], _eff))
-
+                    
                 if len(action.conditional_effects) > 0:
                     raise Exception("Conditional effects are not supported yet")
 
@@ -398,7 +398,7 @@ class EncoderOMT(Encoder):
         objective = []
         if len(self.ground_problem.quality_metrics) > 0:
             for metric in deepcopy(self.ground_problem.quality_metrics):
-                objective.append(utils.inorderTraverse(metric.expression, self.problem_z3_variables[self.horizon], self.problem_constant_numerics) )
+                objective.append(utils.inorderTraverse(metric.expression, self.problem_z3_variables, self.horizon, self.problem_constant_numerics) )
             print('stop here')
         else:
             objective = []
@@ -443,7 +443,7 @@ class EncoderOMT(Encoder):
 
         @return goal: relaxed goal formula
         """
-        return utils.inorderTraverse(self.ground_problem.goals, self.problem_z3_variables[self.horizon], self.problem_constant_numerics, self.touched_variables) 
+        return utils.inorderTraverse(self.ground_problem.goals, self.problem_z3_variables, self.horizon, self.problem_constant_numerics, self.touched_variables) 
 
     def encodeAdditionalCosts(self):
         """!
@@ -523,7 +523,7 @@ class EncoderOMT(Encoder):
                         relax.append(z3.Implies(self.auxiliary_actions[step][action.name], self.boolean_variables[step][fluent_name]))
                 
                 elif pre.node_type in IRA_RELATIONS:
-                    action_precondition_expr = utils.inorderTraverse(pre, self.problem_z3_variables[step], self.problem_constant_numerics)
+                    action_precondition_expr = utils.inorderTraverse(pre, self.problem_z3_variables, step, self.problem_constant_numerics)
                     relax.append(z3.Implies(self.auxiliary_actions[step][action.name], action_precondition_expr))
 
                 elif pre.node_type in [OperatorKind.AND, OperatorKind.OR]:
@@ -535,7 +535,7 @@ class EncoderOMT(Encoder):
                             else:
                                 operand_list.append(self.boolean_variables[step][str(arg)])
                         elif arg.node_type in IRA_RELATIONS:
-                            operand_list.append(utils.inorderTraverse(arg, self.problem_z3_variables[step], self.problem_constant_numerics))
+                            operand_list.append(utils.inorderTraverse(arg, self.problem_z3_variables, step, self.problem_constant_numerics))
                         else:
                             raise Exception("Unknown precondition type {}".format(arg.node_type))
                     
