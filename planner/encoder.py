@@ -399,7 +399,6 @@ class EncoderOMT(Encoder):
         if len(self.ground_problem.quality_metrics) > 0:
             for metric in deepcopy(self.ground_problem.quality_metrics):
                 objective.append(utils.inorderTraverse(metric.expression, self.problem_z3_variables, self.horizon, self.problem_constant_numerics) )
-            print('stop here')
         else:
             objective = []
             for step in range(self.horizon):

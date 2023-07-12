@@ -38,10 +38,6 @@ class Plan():
         self.plan = self._extractPlan(model)
         self.cost = self._extractCost(objective)
 
-        self.planresults = PlanGenerationResult(PlanGenerationResultStatus.SOLVED_SATISFICING if len(self.plan.actions) > 0 else PlanGenerationResultStatus.UNSOLVABLE_INCOMPLETELY,
-                                                self.plan, 
-                                                self.encoder.name)
-
     def _extractPlan(self, model):
         """!
         Extracts plan from model of the formula.
@@ -89,12 +85,8 @@ class Plan():
 
         @return plan: string containing plan if plan found is valid, None otherwise.
         """
-        
-        # TODO: Valdiate using unified planning
-        print("plan validation using unified planning is not implemented yet")
-        return 
-        with PlanValidator(problem_kind=self.encoder.task.kind, plan_kind=self.plan) as validator:
-            if validator.validate(self.encoder.task.ground_problem, self.planresults):
+        with PlanValidator(problem_kind=self.encoder.ground_problem.kind, plan_kind=self.plan.kind) as validator:
+            if validator.validate(self.encoder.ground_problem, self.plan):
                 print('The plan is valid')
             else:
                 print('The plan is invalid')

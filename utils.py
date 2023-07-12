@@ -32,30 +32,6 @@ try:
 except NameError:
     basestring = str
 
-def getDomainName(task_filename):
-    """!
-    Tries to find PDDL domain file when only problem file is supplied.
-
-    @param task_filename: path to PDDL problem file.
-
-    @return domain_filename: path to PDDL domain, if found.
-    """
-
-    dirname, basename = os.path.split(task_filename)
-    ## look for domain in folder or  folder up
-    domain_filename = os.path.join(dirname, "domain.pddl")
-    os.path.exists(domain_filename)
-    if not os.path.exists(domain_filename):
-      domain_filename = os.path.join(dirname, "../domain.pddl")
-    if not os.path.exists(domain_filename) and re.match(r"p[0-9][0-9]\b", basename):
-      domain_filename = os.path.join(dirname, basename[:4] + "domain.pddl")
-    if not os.path.exists(domain_filename) and re.match(r"p[0-9][0-9]\b", basename):
-      domain_filename = os.path.join(dirname, basename[:3] + "-domain.pddl")
-    if not os.path.exists(domain_filename):
-      raise SystemExit("Error: Could not find domain file using "
-                       "automatic naming rules.")
-    return domain_filename
-
 def getValFromModel(assignment):
     """!
         Extracts values from Z3 model
@@ -78,34 +54,6 @@ def getValFromModel(assignment):
     else:
         raise Exception('Unknown type for assignment')
 
-def varNameFromNFluent(fluent):
-    """!
-        Returns variable name used for encoding
-        numeric fluents in SMT.
-
-        @param fluent: Numeric PDDL fluent
-        @returns Z3 variable name.
-    """
-
-    args = [arg.name for arg in fluent.args]
-
-    if len(args) == 0:
-        return fluent.symbol
-    return '{}_{}'.format(fluent.symbol,'_'.join(args))
-
-def varNameFromBFluent(fluent):
-    """!
-        Returns variable name used for encoding
-        boolean fluents in SMT.
-
-        @param fluent: Propositional PDDL fluent.
-        @return Z3 variable name.
-    """
-
-    args = [arg.name for arg in fluent.args]
-    if len(args) == 0:
-        return fluent.predicate
-    return '{}_{}'.format(fluent.predicate,  '_'.join(args))
 
 def isBoolFluent(fluent):
     """!
@@ -125,71 +73,6 @@ def isNumFluent(fluent):
     """
     return fluent.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]
 
-def inorderTraverseEffect(root, z3_variable, numeric_constants, step):
-    def _process_IRAOPERATIONS(effect, z3_variable, numeric_constants):
-        def __get_exp(effect, argidx):
-            # We need to evaluate the expression to get the value of the variable
-            if str(effect.args[argidx]) in list(numeric_constants.keys()):
-                return numeric_constants[str(effect.args[argidx])]
-            elif str(effect.args[argidx]) in list(z3_variable.keys()):
-                return z3_variable[str(effect.args[argidx])]
-            elif effect.node_type in IRA_OPERATORS:
-                return inorderTraverse(effect.args[1], z3_variable, numeric_constants)
-            else:
-                raise Exception("Unknown variable {}".format(str(effect.args[argidx])))
-            
-        _o1 = __get_exp(effect, 0)
-        _o2 = __get_exp(effect, 1)
-
-        if effect.node_type == OperatorKind.PLUS:
-            return _o1 + _o2
-        elif effect.node_type == OperatorKind.MINUS:
-            return _o1 - _o2
-        elif effect.node_type == OperatorKind.TIMES:
-            return _o1 * _o2
-        elif effect.node_type == OperatorKind.DIV:
-            return _o1 / _o2
-        else:
-            raise Exception("Unknown effect type {}".format(effect.kind))
-    
-    #if root is None,return
-    if isinstance(root, list):
-        effectslist = []
-        for effect in root:
-            effectslist.append(inorderTraverseEffect(effect, z3_variable, numeric_constants, step))
-        if root[0].node_type == OperatorKind.AND:
-            return z3.And(effectslist) if len(effectslist) > 1 else effectslist[0]
-        else:
-            return z3.Or(effectslist) if len(effectslist) > 1 else effectslist[0]
-    elif isinstance(root, unified_planning.model.effect.Effect):
-        if root.kind in [EffectKind.INCREASE, EffectKind.DECREASE, EffectKind.ASSIGN]:
-            operand_1 = inorderTraverseEffect(root.fluent, z3_variable, numeric_constants, step)
-            operand_2 = inorderTraverseEffect(root.value, z3_variable, numeric_constants, step)
-            if root.kind == EffectKind.INCREASE:
-                #self.numeric_variables[step+1][fluent_name] == self.numeric_variables[step][fluent_name] + add_var))
-                return z3_variable[step+1][str(root.fluent)] == operand_1 + operand_2
-            elif root.kind == EffectKind.DECREASE:
-                return z3_variable[step+1][str(root.fluent)] == operand_1 - operand_2
-            elif root.kind == EffectKind.ASSIGN:
-                var = inorderTraverseEffect(root.fluent, z3_variable, numeric_constants, step+1)
-                if root.value.is_true():
-                    return var
-                else:
-                    return z3.Not(var)
-    elif isinstance(root, unified_planning.model.fnode.FNode):
-        if root.node_type in IRA_OPERATORS:
-            return _process_IRAOPERATIONS(root, z3_variable[step], numeric_constants)
-        elif root.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
-            if root.node_type == OperatorKind.NOT:
-                return z3.Not(z3_variable[step][str(root)])
-            else:
-                return z3_variable[step][str(root)]
-        elif str(root) in numeric_constants:
-            return numeric_constants[str(root)]
-        elif root.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
-            return z3.RealVal(str(root))
-    else:
-        raise Exception("Unknown type {}".format(type(root)))
 
 def inorderTraverse(root, z3_variable, step, numeric_constants, z3_touched_variables = None):
     #if root is None,return
@@ -301,53 +184,6 @@ def parseMetric(encoder):
             var_names.add(f)
     return list(var_names)
     
-# TODO: We need to fix this.
-def buildMetricExpr(encoder):
-    """!
-    Builds Z3 expression of PDDL metric.
-
-    @param encoder: encoder object.
-    @return metricExpr: Z3 expression encoding metric.
-    """
-
-    metric = encoder.task.metric[1]
-    fluents = encoder.numeric_variables[encoder.horizon]
-
-    def inorderTraversal(metric):
-        op = metric[0]
-
-        if op in ['+','-','*','/']:
-            l_expr = inorderTraversal(metric[1])
-
-            r_expr = inorderTraversal(metric[2])
-
-            if op == '+':
-                return l_expr + r_expr
-            elif op == '-':
-                return l_expr - r_expr
-            elif op == '*':
-                return l_expr * r_expr
-            elif op == '/':
-                return l_expr / r_expr
-            else:
-                raise Exception('Operator not recognized')
-        else:
-            if isinstance(metric,basestring):
-                return float(metric)
-
-            else:
-                return fluents['_'.join(metric)]
-
-
-    if len(metric) == 1:
-        metricExpr =  fluents[metric[0]]
-    else:
-        metricExpr = inorderTraversal(metric)
-
-    return  metricExpr
-
-
-
 def printSMTFormula(formula,problem_name):
         """!
         Prints SMT planning formula in SMT-LIB syntax.
