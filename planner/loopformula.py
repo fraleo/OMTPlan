@@ -134,114 +134,7 @@ def buildDTables(encoder):
     ## Remove duplicate edges
     edges = set(edges)
 
-    for ed in edges:
-        print(ed)
-
     return edges, table
-
-
-
-
-
-    step = encoder.horizon+1
-
-    for action in encoder.actions:
-        # preconditions of action
-        tpre = []
-
-        # relaxed preconditions of action
-        tpre_rel = []
-
-        # effects of action
-        teff = []
-
-        ## Store preconditions (concrete and relaxed)
-        for pre in action.condition:
-            # propositional precondition
-            if utils.isBoolFluent(pre):
-                var_name = utils.varNameFromBFluent(pre)
-                tpre.append(encoder.touched_variables[var_name])
-                if pre.negated:
-                    tmp = [Not(encoder.boolean_variables[step-1][var_name]),encoder.touched_variables[var_name]]
-                else:
-                    tmp = [encoder.boolean_variables[step-1][var_name],encoder.touched_variables[var_name]]
-
-                tpre_rel.append(tuple(tmp))
-
-            # numeric precondition
-            elif isinstance(pre, pddl.conditions.FunctionComparison):
-                expr = utils.inorderTraversalFC(encoder,pre,encoder.numeric_variables[step-1])
-
-                tmp = [expr]
-
-                for var_name in utils.extractVariablesFC(encoder,pre):
-                    tpre.append(encoder.touched_variables[var_name])
-                    tmp.append(encoder.touched_variables[var_name])
-
-                tpre_rel.append(tuple(tmp))
-            else:
-                raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre,type(pre)))
-
-
-        # Store add effects
-        for add in action.add_effects:
-            # check if effect is conditional
-            if len(add[0])==0:
-                var_name = utils.varNameFromBFluent(add[1])
-                teff.append(encoder.touched_variables[var_name])
-            else:
-                raise Exception('Conditional effects not supported')
-
-
-        # Store delete effects
-        for de in action.del_effects:
-            # check if effect is conditional
-            if len(de[0]) == 0:
-                var_name = utils.varNameFromBFluent(de[1])
-                teff.append(encoder.touched_variables[var_name])
-            else:
-                raise Exception('Conditional effects not supported')
-
-        # Store numeric effects
-
-        for ne in action.assign_effects:
-            #  check if effect is conditional
-            if len(ne[0]) == 0:
-
-                if isinstance(ne[1], pddl.f_expression.FunctionAssignment):
-
-                    ## Numeric effects have fluents on the left and either a const, a fluent
-                    ## or a complex numeric expression on the right
-
-                    ## Handle left side
-                    # retrieve variable name
-                    var_name = utils.varNameFromNFluent(ne[1].fluent)
-                    if not var_name in encoder.var_objective:
-                        teff.append(encoder.touched_variables[var_name])
-
-                else:
-
-                    raise Exception('Numeric effect {} not supported yet'.format(ne[1]))
-            else:
-                raise Exception('Conditional effects not supported')
-
-
-        ## Pupulate edges
-        for p in tpre:
-            for e in teff:
-                edges.append((e,p))
-
-        ## Fill lookup table
-
-        table[action.name]['pre'] = tpre
-        table[action.name]['pre_rel'] = tpre_rel
-        table[action.name]['eff'] = teff
-
-    ## Remove duplicate edges
-    edges = set(edges)
-
-    return edges, table
-
 
 def computeSCC(edges):
     """!
@@ -342,7 +235,7 @@ def encodeLoopFormulas(encoder):
                         else:
                             R.append(And(combo))
 
-        lf.append(Implies(Or(L), Or(set(R))))
+        lf.append(z3.Implies(z3.Or(L), z3.Or(set(R))))
 
 
     return lf

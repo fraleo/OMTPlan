@@ -556,140 +556,66 @@ class EncoderOMT(Encoder):
 
         return c
 
-
-
-    # This needs a fix.
     def encodeTransitiveClosure(self):
         """!
         Encodes computation of transitive closure at step n+1  (see related paper).
 
         @return trac: Z3 formulas that encode computation of transitive closure.
         """
-        return 
+        return None
         trac = []
-
         step = self.horizon+1
 
-        for action in self.actions:
-
-            # Encode relaxed preconditions
-            for pre in action.condition:
-
-                if utils.isBoolFluent(pre):
-                    var_name = utils.varNameFromBFluent(pre)
-                    if pre.negated:
-                        trac.append(Implies(self.auxiliary_actions[step][action.name],Or(Not(self.boolean_variables[step-1][var_name]),self.touched_variables[var_name])))
-                    else:
-                        trac.append(Implies(self.auxiliary_actions[step][action.name],Or(self.boolean_variables[step-1][var_name],self.touched_variables[var_name])))
-
-                elif isinstance(pre, pddl.conditions.FunctionComparison):
-                    expr = utils.inorderTraversalFC(self,pre,self.numeric_variables[step-1])
-
-                    # extract touched variables
-                    tvariables = []
-
-                    for var_name in utils.extractVariablesFC(self,pre):
-                        tvariables.append(self.touched_variables[var_name])
-
-                    trac.append(Implies(self.auxiliary_actions[step][action.name],Or(expr,Or(tvariables))))
-
-                else:
-                    raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre,type(pre)))
-
-
-            # Encode relaxed add effects
-            for add in action.add_effects:
-                if len(add[0]) == 0:
-                    trac.append(Implies(self.auxiliary_actions[step][action.name],self.touched_variables[utils.varNameFromBFluent(add[1])]))
-                else:
-                    raise Exception(' Action {} contains add effect not supported'.format(action.name))
-
-
-            # Encode relaxed delete effects
-            for de in action.del_effects:
-                if len(de[0]) == 0:
-                    trac.append(Implies(self.auxiliary_actions[step][action.name], self.touched_variables[utils.varNameFromBFluent(de[1])]))
-                else:
-                    raise Exception(' Action {} contains del effect not supported'.format(action.name))
-
-
-            # Encode relaxed numeric effects
-
-            for ne in action.assign_effects:
-                if len(ne[0]) == 0:
-                    if isinstance(ne[1], pddl.f_expression.FunctionAssignment):
-
-                        ## Numeric effects have fluents on the left and either a const, a fluent
-                        ## or a complex numeric expression on the right
-
-                        ## Handle left side
-                        # retrieve variable name
-                        var_name = utils.varNameFromNFluent(ne[1].fluent)
-                        if not var_name in self.var_objective:
-                            trac.append(Implies(self.auxiliary_actions[step][action.name],self.touched_variables[var_name]))
-
-                    else:
-
-                        raise Exception('Numeric effect {} not supported yet'.format(ne[1]))
-                else:
-                    raise Exception('Numeric conditional effects not supported yet')
-
-        # Encode frame for relaxed propositional state variables
-        # see eq. 11 in related paper
-
+        for action in self.ground_problem.actions:
+            # Append preconditions
+            for pre in action.preconditions:
+                precondition = utils.inorderTraverse(pre, self.problem_z3_variables, step-1, self.problem_constant_numerics)
+                trac.append(z3.Implies(self.auxiliary_actions[step][action.name], z3.Or(precondition, self.touched_variables[str(pre)])))
+            
+            # Append effects.
+            for effect in action.effects:
+                if str(effect.fluent) in self.touched_variables:
+                    trac.append(z3.Implies(self.auxiliary_actions[step][action.name], self.touched_variables[str(effect.fluent)]))
+        
         sentinel = object()
+        # Encode frame axioms for boolean fluents
+        for fluent in self.all_problem_fluents:
+            if fluent.type.is_bool_type():
+                fluent_pre  = self.boolean_variables[step].get(str(fluent), sentinel)
+                fluent_post = self.boolean_variables[step-1].get(str(fluent), sentinel)
+                # Encode frame axioms only if atoms have SMT variables associated
+                if fluent_pre is not sentinel and fluent_post is not sentinel:
+                    action_eff = []
+                    for action in self.ground_problem.actions:
+                        effects_fluents = [effect for effect in action.effects if effect.value.type.is_bool_type()]
+                        
+                        for ele in effects_fluents:
+                            if str(ele.fluent) == str(fluent):
+                                if ele.value.is_true():
+                                    action_eff.append(self.auxiliary_actions[step][action.name])
+                                    action_eff.append(self.auxiliary_actions[step-1][action.name])
+                                else:
+                                    action_eff.append(self.auxiliary_actions[step][action.name])
+                                    action_eff.append(self.auxiliary_actions[step-1][action.name])
+                    trac.append(z3.Implies(self.touched_variables[str(fluent)], Or(action_eff)))
 
-        for fluent in self.boolean_fluents:
-            var_name = utils.varNameFromBFluent(fluent)
-
-            # Exclude aux variables added by TFD parser
-
-            if self.boolean_variables[0].get(var_name, sentinel) is not sentinel:
-
-                action_eff= []
-
-                for action in self.actions:
-                    add_eff = [add[1] for add in action.add_effects]
-                    if fluent in add_eff:
-                        action_eff.append(self.auxiliary_actions[step][action.name])
-                        action_eff.append(self.auxiliary_actions[step-1][action.name])
-
-                    del_eff = [de[1] for de in action.del_effects]
-                    if fluent in del_eff:
-                        action_eff.append(self.auxiliary_actions[step][action.name])
-                        action_eff.append(self.auxiliary_actions[step-1][action.name])
-
-
-                trac.append(Implies(self.touched_variables[var_name], Or(action_eff)))
-
-        # Encode frame for relaxed numeric state variables
-        for fluent in self.numeric_fluents:
-            var_name = utils.varNameFromNFluent(fluent)
-
-            if not var_name in self.var_objective:
-
-                ## Exclude aux variables added by TFD parser
-
-                if self.numeric_variables[0].get(var_name, sentinel) is not sentinel:
-
+            elif fluent.type.is_int_type() or fluent.type.is_real_type():
+                fluent_pre  = self.numeric_variables[step].get(str(fluent), sentinel)
+                fluent_post = self.numeric_variables[step-1].get(str(fluent), sentinel)
+                if fluent_pre is not sentinel and fluent_post is not sentinel:
                     action_num = []
-
-                    for action in self.actions:
-                        num_eff = [ne[1].fluent for ne in action.assign_effects]
-
-                        if fluent in num_eff:
-                            action_num.append(self.auxiliary_actions[step][action.name])
-                            action_num.append(self.auxiliary_actions[step-1][action.name])
-
-
-                    trac.append(Implies(self.touched_variables[var_name],  Or(action_num)))
-
+                    for action in self.ground_problem.actions:
+                        effects_fluents = [effect for effect in action.effects if effect.value.type.is_int_type() or effect.value.type.is_real_type()]
+                        for ele in effects_fluents:
+                            if str(ele.fluent) == str(fluent):
+                                action_num.append(self.auxiliary_actions[step][action.name])
+                                action_num.append(self.auxiliary_actions[step-1][action.name])                      
+                    trac.append(z3.Implies(self.touched_variables[str(fluent)], Or(action_num)))
+            else:
+                raise Exception("Unknown fluent type {}".format(fluent.type))
 
         return trac
-    
-    
-    
-
+        
     def encode(self,horizon):
         """!
         Builds OMT encoding.
@@ -743,15 +669,15 @@ class EncoderOMT(Encoder):
 
         # Encode relaxed transition T^R
 
-        formula['tr'] = self.encodeRelaxedActions() # To be fixed
+        formula['tr'] = self.encodeRelaxedActions() 
 
         # Encode transitive closure
 
-        formula['tc'] = self.encodeTransitiveClosure() # To be fixed
+        formula['tc'] = self.encodeTransitiveClosure() 
 
         # Encode ASAP constraints
 
-        formula['asap'] = self.encodeASAP() # To be fixed
+        formula['asap'] = self.encodeASAP() 
 
         # Encode relaxed  goal state axioms
 
@@ -765,7 +691,7 @@ class EncoderOMT(Encoder):
 
         # Encode loop formula
 
-        formula['lf'] = loopformula.encodeLoopFormulas(self) # To be fixed
+        formula['lf'] = loopformula.encodeLoopFormulas(self) 
 
         # Encode additional cost for relaxed actions
 
