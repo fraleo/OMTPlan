@@ -48,7 +48,6 @@ def getValFromModel(assignment):
     else:
         raise Exception('Unknown type for assignment')
 
-
 def isBoolFluent(fluent):
     """!
     Checks if fluent is propositional.
@@ -66,7 +65,6 @@ def isNumFluent(fluent):
     @return Truth value.
     """
     return fluent.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]
-
 
 def inorderTraverse(root, z3_variable, step, numeric_constants, z3_touched_variables = None):
     #if root is None,return

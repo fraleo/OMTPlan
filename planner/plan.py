@@ -85,6 +85,7 @@ class Plan():
 
         @return plan: string containing plan if plan found is valid, None otherwise.
         """
+        up.shortcuts.get_environment().credits_stream = None
         with PlanValidator(problem_kind=self.encoder.ground_problem.kind, plan_kind=self.plan.kind) as validator:
             if validator.validate(self.encoder.ground_problem, self.plan):
                 print('The plan is valid')

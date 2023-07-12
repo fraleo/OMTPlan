@@ -30,9 +30,6 @@ from planner import search
 
 from unified_planning.io import PDDLReader
 from unified_planning.shortcuts import *
-
-val_path = '/bin/validate'
-
     
 def main(BASE_DIR):
     """
@@ -88,45 +85,8 @@ def main(BASE_DIR):
         print('Exiting now...')
         sys.exit()
 
-
-    # VALidate and print plan
-    # Uses VAL, see https://github.com/KCL-Planning/VAL
-
-    val = BASE_DIR+val_path
-
     if not args.translate:
         plan.validate()
 
-        
-
-        # print("Use unified planning to validate plan")
-
-        # TODO: Print plan using unified planning
-
-        # try:
-        #     if plan.validate(val, domain, prb):
-        #         print('\nPlan found!')
-        #         print('\nCost: {}\n'.format(plan.cost))
-        #         for k,v in plan.plan.items():
-        #             print('Step {}: {}'.format(k, v))
-        #     else:
-        #         print('Plan not valid, exiting now...')
-        #         sys.exit()
-        # except:
-        #     print('\nThe following plan could not be validated.')
-        #     if plan is not None:
-        #         print('\nCost: {}\n'.format(plan.cost))
-        #         for k,v in plan.plan.items():
-        #             print('Step {}: {}'.format(k, v))
-
-        # # Printing plan to file
-
-        # if args.pprint:
-        #     if len(plan.plan) == 0:
-        #         print('Warning: no plan found, nothing to print!')
-        #     else:
-        #         plan.pprint(BASE_DIR)
-
- 
 if __name__ == '__main__':
     main()
