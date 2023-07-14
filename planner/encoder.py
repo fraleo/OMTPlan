@@ -404,7 +404,7 @@ class EncoderOMT(Encoder):
             for step in range(self.horizon):
                 for action in self.action_variables[step].values():
                     objective.append(z3.If(action,1.0,0.0))
-        objective = sum(objective)
+        objective = sum(objective) if len(objective) > 0 else objective
         return objective
         
     def createAuxVariables(self):
