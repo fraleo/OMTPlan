@@ -103,7 +103,7 @@ class SearchOMT(Search):
         percentages = [10,15,25,35,50,75,100]
 
         def percentage(percent, whole):
-            return (percent * whole) / 100
+            return int((percent * whole) / 100)
 
         for p in percentages:
             schedule.append(percentage(p,self.ub))
@@ -131,7 +131,7 @@ class SearchOMT(Search):
             self.solver = Optimize()
 
             # Build planning subformulas
-            formula = self.encoder.encode(int(horizon))
+            formula = self.encoder.encode(horizon)
 
             # Assert subformulas in solver
             for label, sub_formula in formula.items():
