@@ -124,9 +124,9 @@ def buildDTables(encoder):
 
         ## Fill lookup table
 
-        table[action.name]['pre'] = tpre
+        table[action.name]['pre']     = tpre
         table[action.name]['pre_rel'] = tpre_rel
-        table[action.name]['eff'] = teff
+        table[action.name]['eff']     = teff
         
         if len(action.conditional_effects) > 0:
             raise Exception("Conditional effects are not supported yet")
@@ -150,7 +150,7 @@ def computeSCC(edges):
 
     scc_original = nx.strongly_connected_components(g)
 
-    self_loops = set([n for n in g.nodes_with_selfloops()])
+    self_loops = set([n for n in nx.nodes_with_selfloops(g)])
 
     scc_purged = []
 
@@ -233,7 +233,7 @@ def encodeLoopFormulas(encoder):
                         if len(set(combo) & loop) > 0:
                             pass
                         else:
-                            R.append(And(combo))
+                            R.append(z3.And(combo))
 
         lf.append(z3.Implies(z3.Or(L), z3.Or(set(R))))
 

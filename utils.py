@@ -241,10 +241,11 @@ def get_planning_problems(BASE_DIR):
     domains['rover-linear'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/rover-linear/domain.pddl', 
                                'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/rover-linear/instances/pfile<ADD>.pddl',
                                'from': 1, 'to': 10, 'name': 'rover-linear'}
-
-    domains['tpp-metric'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/tpp-metric/domain.pddl',
-                             'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/tpp-metric/instances/p<ADD>.pddl',
-                             'from': 1, 'to': 10, 'name': 'tpp-metric'}
+    
+    # Generates a parsing bug when grounding.
+    # domains['tpp-metric'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/tpp-metric/domain.pddl',
+    #                          'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/tpp-metric/instances/p<ADD>.pddl',
+    #                          'from': 1, 'to': 10, 'name': 'tpp-metric'}
     
     domains['zenotravle-linear'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/zenotravel-linear/domain.pddl',
                                     'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/zenotravel-linear/instances/pfile<ADD>.pddl',
@@ -276,106 +277,8 @@ def get_planning_problems(BASE_DIR):
             planning_problems.append(domaininfo)
 
 
-    # # Do this one manual.
-    # domains['fo-counters-rnd'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-counters-rnd/domain.pddl',
-    #                               'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-counters-rnd/instances/instance_<ADD>.pddl',}
-
-    # domains['fo-farmland'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-farmland/domain.pddl',}
-    # 'fo-sailing'
 
     return planning_problems
 
-
-    # domains["benchmarks_IJCAI20"] = {"domains" : [
-    #                                     {'domain': 'grid-round-2-strips/domain.pddl',      'instances-dir': 'grid-round-2-strips/instances/'},
-    #                                     {'domain': 'logistics-round-1-strips/domain.pddl', 'instances-dir': 'logistics-round-1-strips/instances/'},
-    #                                     {'domain': 'logistics-round-2-strips/domain.pddl', 'instances-dir': 'logistics-round-2-strips/instances/'}
-    #                                    ]}
-
-    # domains["ipc-2000"] = {"domains" : [
-    #                                     {'domain': 'elevator-strips-simple-typed/domain.pddl', 'instances-dir': 'elevator-strips-simple-typed/instances/'},
-    #                                     {'domain': 'freecell-strips-typed/domain.pddl',        'instances-dir': 'freecell-strips-typed/instances/'},
-    #                                     {'domain': 'logistics-strips-typed/domain.pddl',       'instances-dir': 'logistics-strips-typed/instances/'}
-    #                                 ]}
-
-    # domains["ipc-2002"] = {"domains" : [
-    #                                      {'domain': 'depots-strips-automatic/domain.pddl',    'instances-dir': 'depots-strips-automatic/instances/'}, 
-    #                                      {'domain': 'driverlog-strips-automatic/domain.pddl', 'instances-dir': 'driverlog-strips-automatic/instances/'},  
-    #                                      {'domain': 'rovers-strips-automatic/domain.pddl',    'instances-dir': 'rovers-strips-automatic/instances/'},
-    #                                      {'domain': 'satellite-strips-automatic/domain.pddl', 'instances-dir': 'satellite-strips-automatic/instances/'},
-    #                                      {'domain': 'zenotravel-strips-automatic/domain.pddl','instances-dir': 'zenotravel-strips-automatic/instances/'}
-    #                                 ]}
-    
-
-    # domains["ipc-2004"] = {"domains" : [
-    #                                      {'domain': 'airport-nontemporal-strips/domain.pddl',               'instances-dir': 'airport-nontemporal-strips/instances/'},
-    #                                      {'domain': 'pipesworld-no-tankage-nontemporal-strips/domain.pddl', 'instances-dir': 'pipesworld-no-tankage-nontemporal-strips/instances/'},
-    #                                      {'domain': 'pipesworld-tankage-nontemporal-strips/domain.pddl',    'instances-dir': 'pipesworld-tankage-nontemporal-strips/instances/'},
-    #                                      {'domain': 'satellite-strips/domain.pddl',                         'instances-dir': 'satellite-strips/instances/'},
-    #                                      {'domain': 'settlers-strips/domain.pddl',                          'instances-dir': 'settlers-strips/instances/'}
-    #                                 ]}
-    
-    # domains["ipc-2006"] = {"domains" : [
-    #                                      {'domain': 'openstacks-propositional/domain.pddl', 'instances-dir': 'openstacks-propositional/instances/'},
-    #                                      {'domain': 'pathways-propositional/domain.pddl',   'instances-dir': 'pathways-propositional/instances/'},
-    #                                      {'domain': 'storage-propositional/domain.pddl',    'instances-dir': 'storage-propositional/instances/'},
-    #                                      {'domain': 'tpp-propositional/domain.pddl',        'instances-dir': 'tpp-propositional/instances/'},
-    #                                      {'domain': 'trucks-propositional/domain.pddl',     'instances-dir': 'trucks-propositional/instances/'}
-    #                                 ]}
-
-    # domains["ipc-2008"] = {"domains" : [
-    #                                      {'domain': 'elevator-sequential-satisficing-strips/domain.pddl',      'instances-dir': 'elevator-sequential-satisficing-strips/instances/'},
-    #                                      {'domain': 'scanalyzer-3d-sequential-satisficing-strips/domain.pddl', 'instances-dir': 'scanalyzer-3d-sequential-satisficing-strips/instances/'},
-    #                                      {'domain': 'sokoban-sequential-satisficing-strips/domain.pddl',       'instances-dir': 'sokoban-sequential-satisficing-strips/instances/'},
-    #                                      {'domain': 'transport-sequential-satisficing-strips/domain.pddl',     'instances-dir': 'transport-sequential-satisficing-strips/instances/'},
-    #                                      {'domain': 'woodworking-sequential-satisficing-strips/domain.pddl',   'instances-dir': 'woodworking-sequential-satisficing-strips/instances/'}
-    #                                 ]}
-
-    # domains["ipc-2011"] = {"domains" : [
-    #                                      {'domain': 'barman-sequential-satisficing/domain.pddl',     'instances-dir': 'barman-sequential-satisficing/instances/'},
-    #                                      {'domain': 'floor-tile-sequential-satisficing/domain.pddl', 'instances-dir': 'floor-tile-sequential-satisficing/instances/'},
-    #                                      {'domain': 'no-mystery-sequential-satisficing/domain.pddl', 'instances-dir': 'no-mystery-sequential-satisficing/instances/'},
-    #                                      {'domain': 'parking-sequential-satisficing/domain.pddl',    'instances-dir': 'parking-sequential-satisficing/instances/'},
-    #                                      {'domain': 'tidybot-sequential-satisficing/domain.pddl',    'instances-dir': 'tidybot-sequential-satisficing/instances/'}
-    #                                 ]}
-
-    # domains["ipc-2014"] = {"domains" : [
-    #                                      {'domain': 'child-snack-sequential-satisficing/domain.pddl',           'instances-dir': 'child-snack-sequential-satisficing/instances/'},
-    #                                      {'domain': 'city-car-sequential-satisficing/domain.pddl',              'instances-dir': 'city-car-sequential-satisficing/instances/'},
-    #                                      {'domain': 'genome-edit-distances-sequential-satisficing/domain.pddl', 'instances-dir': 'genome-edit-distances-sequential-satisficing/instances/'},
-    #                                      {'domain': 'hiking-sequential-satisficing/domain.pddl',                'instances-dir': 'hiking-sequential-satisficing/instances/'},
-    #                                      {'domain': 'maintenance-sequential-satisficing/domain.pddl',           'instances-dir': 'maintenance-sequential-satisficing/instances/'},
-    #                                      {'domain': 'parking-sequential-satisficing/domain.pddl',               'instances-dir': 'parking-sequential-satisficing/instances/'}
-    #                                  ]}
-    # planning_problems = []
-    # for year in domains.keys():
-    #     for domain in domains[year]['domains']:
-    #         instancesdir = os.path.join(args.pddl_instances_dir, year, 'domains', domain['instances-dir'])
-    #         for (dirpath, dirnames, instancefiles) in walk(instancesdir):
-    #             for filename in instancefiles:
-    #                 problemfile = os.path.join(instancesdir, filename)
-    #                 if not os.path.exists(problemfile):
-    #                     print("problem file {} does not exist".format(problemfile))
-    #                 if problemfile.endswith('.pddl'):
-    #                     planning_problem                    = {}
-    #                     planning_problem['problem-info']    = "{}-{}".format(domain['domain'].split(os.sep)[-2], filename.split(os.sep)[-1])
-    #                     planning_problem['domain']          = os.path.join(args.pddl_instances_dir, year, 'domains', domain['domain'])
-    #                     planning_problem['problem']         = problemfile
-    #                     # Removing states for now to test the whole framework.
-    #                     planning_problem['metrics']         = ["stability", "uniqueness", "states", "stability-uniqueness", "stability-states", "states-uniqueness", "stability-uniqueness-states"] #
-    #                     planning_problem["aggregator"]      = "min"
-    #                     planning_problem["similarity"]      = "false"
-    #                     planning_problem["use-limits"]      = "true"
-    #                     planning_problem["time-limit-mins"] = 45
-    #                     planning_problem["memory-limit-gb"] = 6
-    #                     planning_problem["dump-dir"]        = os.path.join(args.sandbox_dir, "Generated-plans",  year, domain['instances-dir'], filename)
-    #                     planning_problem["extract-dir"]     = os.path.join(args.sandbox_dir, "Extracted-plans",  year, domain['instances-dir'], filename)
-    #                     planning_problem["translate-dir"]   = os.path.join(args.sandbox_dir, "Translated-plans", year)
-    #                     planning_problem["q"]               = 2
-    #                     planning_problem["generate-k"]      = 3000
-    #                     planning_problem["select-k"]        = 0
-    #                     planning_problem["step-k"]          = 5
-    #                     planning_problems.append(planning_problem)
-    # return planning_problems        
 
 

@@ -562,15 +562,23 @@ class EncoderOMT(Encoder):
 
         @return trac: Z3 formulas that encode computation of transitive closure.
         """
-        return None
         trac = []
         step = self.horizon+1
 
         for action in self.ground_problem.actions:
             # Append preconditions
             for pre in action.preconditions:
+                touched_vars = []
+                if pre.node_type in IRA_OPERATORS or pre.node_type in RELATIONS:
+                    # This means this is a numeric expression and we need to append both operands.
+                    for arg in pre.args:
+                        if str(arg) in self.touched_variables:
+                            touched_vars.append(self.touched_variables[str(arg)])
+                else:
+                    # This means this is a boolean expression and it is enough to append the variable itself.
+                    touched_vars.append(self.touched_variables[str(pre)])
                 precondition = utils.inorderTraverse(pre, self.problem_z3_variables, step-1, self.problem_constant_numerics)
-                trac.append(z3.Implies(self.auxiliary_actions[step][action.name], z3.Or(precondition, self.touched_variables[str(pre)])))
+                trac.append(z3.Implies(self.auxiliary_actions[step][action.name], z3.Or(precondition, z3.Or(touched_vars))))
             
             # Append effects.
             for effect in action.effects:
