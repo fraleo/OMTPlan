@@ -66,6 +66,8 @@ def parse_args():
 
     parser.add_argument('-b', type=int, default=bound, help='Upper bound for OMTPlan search.')
 
+    parser.add_argument('-testencoding', action='store_true', help='Tests encoding for a given problem.')
+
 
     args = parser.parse_args()
 

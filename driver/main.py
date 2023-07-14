@@ -19,6 +19,7 @@
 ############################################################################
 
 import sys
+import os
 from . import arguments
 
 import subprocess
@@ -38,6 +39,22 @@ def main(BASE_DIR):
 
     # Parse planner args
     args = arguments.parse_args()
+
+    if args.testencoding:
+        translate_dump_dir = os.path.join(BASE_DIR, 'translate_dump')
+        if not os.path.exists(translate_dump_dir):
+            os.makedirs(translate_dump_dir)
+        problems = utils.get_planning_problems(BASE_DIR)
+        for problem in problems:
+            planning_task = PDDLReader().parse_problem(problem['domain'], problem['instance'])
+            print('Encoding problem: {}-{}'.format(problem['name'], planning_task.name))
+            if args.smt:
+                e = encoder.EncoderSMT(planning_task, modifier.LinearModifier() if args.linear else modifier.ParallelModifier())
+                formula = e.encode(1)
+                # Print SMT planning formula (linear) to file
+                utils.printSMTFormula(formula, '{}-{}'.format(problem['name'], planning_task.name), translate_dump_dir)
+        exit()
+
 
     # Compose encoder and search
     # according to user flags
@@ -62,7 +79,7 @@ def main(BASE_DIR):
         if args.translate:
             formula = e.encode(args.translate)
             # Print SMT planning formula (linear) to file
-            utils.printSMTFormula(formula,task.name)
+            utils.printSMTFormula(formula,task.name, BASE_DIR)
         else:
             # Ramp-up search for optimal planning with unit costs
             s = search.SearchSMT(e, args.b)
