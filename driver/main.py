@@ -51,8 +51,11 @@ def main(BASE_DIR):
             if args.smt:
                 e = encoder.EncoderSMT(planning_task, modifier.LinearModifier() if args.linear else modifier.ParallelModifier())
                 formula = e.encode(1)
-                # Print SMT planning formula (linear) to file
                 utils.printSMTFormula(formula, '{}-{}'.format(problem['name'], planning_task.name), translate_dump_dir)
+            elif args.omt:
+                e = encoder.EncoderOMT(planning_task, modifier.LinearModifier() if args.linear else modifier.ParallelModifier())
+                formula = e.encode(1)
+                utils.printOMTFormula(formula, '{}-{}'.format(problem['name'], planning_task.name), translate_dump_dir)
         exit()
 
 

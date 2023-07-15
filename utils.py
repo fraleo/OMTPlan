@@ -197,7 +197,7 @@ def printSMTFormula(formula,problem_name, dump_to_dir):
         with open(os.path.join(dump_to_dir,'{}.smt2').format(problem_name),'w') as fo:
             fo.write(solver.to_smt2())
 
-def printOMTFormula(formula,problem_name):
+def printOMTFormula(formula,problem_name, dump_to_dir):
         """!
         Prints OMT planning formula in SMT-LIB syntax.
 
@@ -221,7 +221,7 @@ def printOMTFormula(formula,problem_name):
         # and already prints what Solver prints when to_smt2
         # is called
         
-        with open('{}.smt2'.format(problem_name),'w') as fo:
+        with open(os.path.join(dump_to_dir,'{}.smt2').format(problem_name),'w') as fo:
             fo.write(solver.sexpr())
             
 
