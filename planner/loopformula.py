@@ -60,14 +60,17 @@ def buildDTables(encoder):
         # effects of action
         teff = []
 
-        
-
         # Append preconditions
         for pre in action.preconditions:
             if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
                 for var_name in FreeVarsExtractor().get(pre):
-                    print(var_name)
-                pass
+                    tpre.append(encoder.touched_variables[var_name])
+                    if pre.node_type == OperatorKind.NOT:
+                        tmp = [z3.Not(encoder.boolean_variables[step-1][str(var_name)]), encoder.touched_variables[str(var_name)]]
+                    else:
+                        tmp = [encoder.boolean_variables[step-1][str(var_name)],encoder.touched_variables[str(var_name)]]
+                    
+                    tpre_rel.append(tuple(tmp))
             else:
                 tmp = []
                 for var_name in FreeVarsExtractor().get(pre):
@@ -75,57 +78,13 @@ def buildDTables(encoder):
                     tmp.append(encoder.touched_variables[str(var_name)])
                 tpre.append(tuple(tmp))
             
-            
-            if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
-                fluent_name = str(pre)
-                tpre.append(encoder.touched_variables[fluent_name])
-
-                if pre.node_type == OperatorKind.NOT:
-                    # This is a hacky way to remove the not ( ) from the string to get the fluent name
-                    fluent_name = str(pre).replace("(not ","").replace(")","")
-                    tmp = [z3.Not(encoder.boolean_variables[step-1][fluent_name]), encoder.touched_variables[fluent_name]]
-                else:
-                    tmp = [encoder.boolean_variables[step-1][fluent_name],encoder.touched_variables[fluent_name]]
-                
-                if not tmp[0] == tmp[1]:
-                    tpre_rel.append(tuple(tmp))
-            
-            else:
-                # action_precondition_expr = utils.inorderTraverse(pre, encoder.problem_z3_variables[step-1], encoder.problem_constant_numerics)
-                # tmp = [action_precondition_expr]
-                pass
-
-            # elif pre.node_type in [OperatorKind.AND, OperatorKind.OR]:
-                
-            #     for arg in pre.args:
-            #         if arg.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
-            #             fluent_name = str(pre)
-            #             tpre.append(encoder.touched_variables[fluent_name])
-            #             if pre.node_type == OperatorKind.NOT:
-            #                 # This is a hacky way to remove the not ( ) from the string to get the fluent name
-            #                 fluent_name = str(pre).replace("(not ","").replace(")","")
-            #                 tmp = [z3.Not(encoder.boolean_variables[step-1][fluent_name]), encoder.touched_variables[fluent_name]]
-            #             else:
-            #                 tmp = [encoder.boolean_variables[step-1][fluent_name],encoder.touched_variables[fluent_name]]
-            #             tpre_rel.append(tuple(tmp))
-
-            #         elif arg.node_type in IRA_RELATIONS:
-            #             action_precondition_expr = utils.inorderTraverse(pre, encoder.problem_z3_variables[step-1], encoder.problem_constant_numerics)
-                
-            #             tmp = [action_precondition_expr]
-            #             for var_name in FreeVarsExtractor().get(arg):
-            #                 tpre.append(encoder.touched_variables[var_name])
-            #                 tmp.append(encoder.touched_variables[var_name])
-
-            #             tpre.append(tuple(tmp))
-            #         else:
-            #             raise Exception("Unknown precondition type {}".format(arg.node_type))
-            # else:
-            #     raise Exception("Unknown precondition type {}".format(pre.node_type))
+        # TODO: These is a bug here, the but is that the edges should be between two predicates, not between mulitple predicates.
+        
                             
         # Append effects.
         for effect in action.effects:
-            teff.append(encoder.touched_variables[str(effect.fluent)])
+            if str(effect.fluent) in encoder.touched_variables and not str(effect.fluent) in encoder.var_objective:
+                teff.append(encoder.touched_variables[str(effect.fluent)])
         
         ## Pupulate edges
         for p in tpre:
