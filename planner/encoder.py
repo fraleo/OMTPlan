@@ -35,8 +35,6 @@ class Encoder:
         self.modifier = modifier
 
         self.ground_problem = self._ground()
-        
-        self.actions = deepcopy(self.ground_problem.actions)
 
         self.boolean_variables = defaultdict(dict)
         self.numeric_variables = defaultdict(dict)
@@ -197,14 +195,19 @@ class Encoder:
                 if not fluent in constant_fluents:
                     self.numeric_variables[step][str(fluent)] = z3.Real('{}_{}'.format(str(fluent),step))
                     self.problem_z3_variables[step][str(fluent)] = z3.Real('{}_{}'.format(str(fluent),step))
-
-        self.all_problem_fluents.extend(boolean_fluents)
-        self.all_problem_fluents.extend(numeric_fluents)
-
         for step in range(self.horizon+1):
             for action in self.ground_problem.actions:
                 self.action_variables[step][action.name] = z3.Bool('{}_{}'.format(action.name,step))
+
+
+        self.all_problem_fluents.extend(boolean_fluents)
+        self.all_problem_fluents.extend(numeric_fluents)
+        # Now remove constant fluents from all_problem_fluents.
+        for fluent in constant_fluents:
+            self.all_problem_fluents.remove(fluent)
         
+
+
     def encodeInitialState(self):
         """!
         Encodes formula defining initial state
@@ -430,7 +433,7 @@ class EncoderOMT(Encoder):
         self.auxiliary_actions = defaultdict(dict)
 
         for step in range(self.horizon,self.horizon+2):
-            for action in self.actions:
+            for action in self.ground_problem.actions:
                 self.auxiliary_actions[step][action.name] = z3.Bool('{}_{}'.format(action.name,step))
 
     def encodeRelaxedGoal(self):
@@ -526,7 +529,6 @@ class EncoderOMT(Encoder):
         all_actions  = self.action_variables.copy()
         all_actions.update(self.auxiliary_actions)
 
-
         c = []
 
         for step in range(self.horizon+1):
@@ -592,33 +594,33 @@ class EncoderOMT(Encoder):
                 fluent_pre  = self.boolean_variables[step].get(str(fluent), sentinel)
                 fluent_post = self.boolean_variables[step-1].get(str(fluent), sentinel)
                 # Encode frame axioms only if atoms have SMT variables associated
-                if fluent_pre is not sentinel and fluent_post is not sentinel:
-                    action_eff = []
-                    for action in self.ground_problem.actions:
-                        effects_fluents = [effect for effect in action.effects if effect.value.type.is_bool_type()]
-                        
-                        for ele in effects_fluents:
-                            if str(ele.fluent) == str(fluent):
-                                if ele.value.is_true():
-                                    action_eff.append(self.auxiliary_actions[step][action.name])
-                                    action_eff.append(self.auxiliary_actions[step-1][action.name])
-                                else:
-                                    action_eff.append(self.auxiliary_actions[step][action.name])
-                                    action_eff.append(self.auxiliary_actions[step-1][action.name])
-                    trac.append(z3.Implies(self.touched_variables[str(fluent)], Or(action_eff)))
+                
+                action_eff = []
+                for action in self.ground_problem.actions:
+                    effects_fluents = [effect for effect in action.effects if effect.value.type.is_bool_type()]
+                    
+                    for ele in effects_fluents:
+                        if str(ele.fluent) == str(fluent):
+                            if ele.value.is_true():
+                                action_eff.append(self.auxiliary_actions[step][action.name])
+                                action_eff.append(self.auxiliary_actions[step-1][action.name])
+                            else:
+                                action_eff.append(self.auxiliary_actions[step][action.name])
+                                action_eff.append(self.auxiliary_actions[step-1][action.name])
+                trac.append(z3.Implies(self.touched_variables[str(fluent)], z3.Or(action_eff)))
 
             elif fluent.type.is_int_type() or fluent.type.is_real_type():
                 fluent_pre  = self.numeric_variables[step].get(str(fluent), sentinel)
                 fluent_post = self.numeric_variables[step-1].get(str(fluent), sentinel)
-                if fluent_pre is not sentinel and fluent_post is not sentinel:
-                    action_num = []
-                    for action in self.ground_problem.actions:
-                        effects_fluents = [effect for effect in action.effects if effect.value.type.is_int_type() or effect.value.type.is_real_type()]
-                        for ele in effects_fluents:
-                            if str(ele.fluent) == str(fluent):
-                                action_num.append(self.auxiliary_actions[step][action.name])
-                                action_num.append(self.auxiliary_actions[step-1][action.name])                      
-                    trac.append(z3.Implies(self.touched_variables[str(fluent)], Or(action_num)))
+
+                action_num = []
+                for action in self.ground_problem.actions:
+                    effects_fluents = [effect for effect in action.effects if effect.value.type.is_int_type() or effect.value.type.is_real_type()]
+                    for ele in effects_fluents:
+                        if str(ele.fluent) == str(fluent):
+                            action_num.append(self.auxiliary_actions[step][action.name])
+                            action_num.append(self.auxiliary_actions[step-1][action.name])                      
+                trac.append(z3.Implies(self.touched_variables[str(fluent)], z3.Or(action_num)))
             else:
                 raise Exception("Unknown fluent type {}".format(fluent.type))
 
@@ -681,11 +683,11 @@ class EncoderOMT(Encoder):
 
         # Encode transitive closure
 
-        formula['tc'] = self.encodeTransitiveClosure() 
+        formula['tc'] = self.encodeTransitiveClosure()
 
         # Encode ASAP constraints
 
-        formula['asap'] = self.encodeASAP() 
+        formula['asap'] = self.encodeASAP() # This needs to be fixed.
 
         # Encode relaxed  goal state axioms
 
@@ -699,7 +701,7 @@ class EncoderOMT(Encoder):
 
         # Encode loop formula
 
-        formula['lf'] = loopformula.encodeLoopFormulas(self) 
+        formula['lf'] = loopformula.encodeLoopFormulas(self) # This needs to be fixed.
 
         # Encode additional cost for relaxed actions
 
