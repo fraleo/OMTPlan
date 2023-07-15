@@ -60,8 +60,22 @@ def buildDTables(encoder):
         # effects of action
         teff = []
 
+        
+
         # Append preconditions
         for pre in action.preconditions:
+            if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
+                for var_name in FreeVarsExtractor().get(pre):
+                    print(var_name)
+                pass
+            else:
+                tmp = []
+                for var_name in FreeVarsExtractor().get(pre):
+                    tpre.append(encoder.touched_variables[str(var_name)])
+                    tmp.append(encoder.touched_variables[str(var_name)])
+                tpre.append(tuple(tmp))
+            
+            
             if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
                 fluent_name = str(pre)
                 tpre.append(encoder.touched_variables[fluent_name])
@@ -79,11 +93,7 @@ def buildDTables(encoder):
             else:
                 # action_precondition_expr = utils.inorderTraverse(pre, encoder.problem_z3_variables[step-1], encoder.problem_constant_numerics)
                 # tmp = [action_precondition_expr]
-                tmp = []
-                for var_name in FreeVarsExtractor().get(pre):
-                    tpre.append(encoder.touched_variables[str(var_name)])
-                    tmp.append(encoder.touched_variables[str(var_name)])
-                tpre.append(tuple(tmp))
+                pass
 
             # elif pre.node_type in [OperatorKind.AND, OperatorKind.OR]:
                 

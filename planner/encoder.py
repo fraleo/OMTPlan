@@ -571,14 +571,9 @@ class EncoderOMT(Encoder):
             # Append preconditions
             for pre in action.preconditions:
                 touched_vars = []
-                if pre.node_type in IRA_OPERATORS or pre.node_type in RELATIONS:
-                    # This means this is a numeric expression and we need to append both operands.
-                    for arg in pre.args:
-                        if str(arg) in self.touched_variables:
-                            touched_vars.append(self.touched_variables[str(arg)])
-                else:
-                    # This means this is a boolean expression and it is enough to append the variable itself.
-                    touched_vars.append(self.touched_variables[str(pre)])
+                for var in FreeVarsExtractor().get(pre):
+                    if str(var) in self.touched_variables:
+                        touched_vars.append(self.touched_variables[str(var)])
                 precondition = utils.inorderTraverse(pre, self.problem_z3_variables, step-1, self.problem_constant_numerics)
                 trac.append(z3.Implies(self.auxiliary_actions[step][action.name], z3.Or(precondition, z3.Or(touched_vars))))
             
@@ -591,10 +586,7 @@ class EncoderOMT(Encoder):
         # Encode frame axioms for boolean fluents
         for fluent in self.all_problem_fluents:
             if fluent.type.is_bool_type():
-                fluent_pre  = self.boolean_variables[step].get(str(fluent), sentinel)
-                fluent_post = self.boolean_variables[step-1].get(str(fluent), sentinel)
                 # Encode frame axioms only if atoms have SMT variables associated
-                
                 action_eff = []
                 for action in self.ground_problem.actions:
                     effects_fluents = [effect for effect in action.effects if effect.value.type.is_bool_type()]
@@ -610,9 +602,6 @@ class EncoderOMT(Encoder):
                 trac.append(z3.Implies(self.touched_variables[str(fluent)], z3.Or(action_eff)))
 
             elif fluent.type.is_int_type() or fluent.type.is_real_type():
-                fluent_pre  = self.numeric_variables[step].get(str(fluent), sentinel)
-                fluent_post = self.numeric_variables[step-1].get(str(fluent), sentinel)
-
                 action_num = []
                 for action in self.ground_problem.actions:
                     effects_fluents = [effect for effect in action.effects if effect.value.type.is_int_type() or effect.value.type.is_real_type()]
