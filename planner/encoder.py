@@ -687,7 +687,7 @@ class EncoderOMT(Encoder):
 
         # Encode ASAP constraints
 
-        formula['asap'] = self.encodeASAP() # This needs to be fixed.
+        formula['asap'] = self.encodeASAP()
 
         # Encode relaxed  goal state axioms
 
