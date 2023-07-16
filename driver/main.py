@@ -59,6 +59,8 @@ def main(BASE_DIR):
                         print('SMT: Solving problem: {}-{}'.format(problem['name'], planning_task.name))
                         s = search.SearchSMT(e, args.b)
                         plan = s.do_linear_search()
+                        if len(plan.plan.actions) == 0:
+                            raise Exception('SMT: No plan found!')
                         if plan.validate():
                             print('SMT: Plan found valid!')
                         else:
@@ -75,6 +77,8 @@ def main(BASE_DIR):
                         print('OMT: Solving problem: {}-{}'.format(problem['name'], planning_task.name))
                         s = search.SearchOMT(e, args.b)
                         plan = s.do_search()
+                        if len(plan.plan.actions) == 0:
+                            raise Exception('SMT: No plan found!')
                         if plan.validate():
                             print('OMT: Plan found valid!')
                         else:
@@ -92,8 +96,6 @@ def main(BASE_DIR):
                     f.write(logmsg)
                     f.write('\n')
         exit()
-
-
 
     # Compose encoder and search
     # according to user flags
