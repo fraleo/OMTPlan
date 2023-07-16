@@ -238,14 +238,29 @@ def get_planning_problems(BASE_DIR):
                                   'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-counters-inv/instances/instance_<ADD>.pddl',
                                   'from': 2, 'to': 21, 'name': 'fo-counters-inv'}
 
+    domains['fo-counters-rnd'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-counters-rnd/domain.pddl',
+                                  'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-counters-rnd/instances/instance_<ADD>.pddl',
+                                  'from': 1, 'to': 60, 'name': 'fo-counters-rnd'}
+
+    domains['fo-farmland-1']   = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-farmland/domain.pddl',
+                                  'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-farmland/instances-small/instance_<ADD>.pddl',
+                                  'from': 1, 'to': 20, 'name': 'fo-farmland'} 
+
+    domains['fo-farmland-2']   = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-farmland/domain.pddl',
+                                  'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-farmland/instances-other/instance_<ADD>.pddl',
+                                  'from': 1, 'to': 30, 'name': 'fo-farmland'} 
+
+    domains['fo-sailing']      = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/domain.pddl',
+                                    'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/instances/instance_<ADD>.pddl',
+                                    'from': 1, 'to': 20, 'name': 'fo-sailing'}
+
     domains['rover-linear'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/rover-linear/domain.pddl', 
                                'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/rover-linear/instances/pfile<ADD>.pddl',
                                'from': 1, 'to': 10, 'name': 'rover-linear'}
     
-    # Generates a parsing bug when grounding.
-    # domains['tpp-metric'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/tpp-metric/domain.pddl',
-    #                          'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/tpp-metric/instances/p<ADD>.pddl',
-    #                          'from': 1, 'to': 10, 'name': 'tpp-metric'}
+    domains['tpp-metric'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/tpp-metric/domain.pddl',
+                             'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/tpp-metric/instances/p<ADD>.pddl',
+                             'from': 1, 'to': 10, 'name': 'tpp-metric'}
     
     domains['zenotravle-linear'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/zenotravel-linear/domain.pddl',
                                     'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/zenotravel-linear/instances/pfile<ADD>.pddl',
@@ -256,27 +271,95 @@ def get_planning_problems(BASE_DIR):
                             'from': 2, 'to': 9, 'name': 'counters'}
     
     domains['depots'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/depots/domain.pddl',
-                            'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/depots/instances/instance_<ADD>.pddl',
+                            'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/depots/instances/pfile<ADD>.pddl',
                             'from': 1, 'to': 20, 'name': 'depots'}
     
-    domains['rover-'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/rover/domain.pddl',
-                         'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/rover/instances/pfile<ADD>.pddl',
-                         'from': 1, 'to': 20, 'name': 'rover'}
+    domains['farmland'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/farmland/domain.pddl',
+                            'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/farmland/instances/instance_<ADD>.pddl',
+                            'from': 1, 'to': 30, 'name': 'farmland'}
+
+    domains['gardening'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/gardening/domain.pddl',
+                            'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/gardening/instances/instance_<ADD>.pddl',
+                            'from': 1, 'to': 63, 'name': 'gardening'}
+
+    domains['rover-simple'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/rover/domain.pddl',
+                               'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/rover/instances/pfile<ADD>.pddl',
+                               'from': 1, 'to': 20, 'name': 'rover'}
+    
+    domains['sailing'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/sailing/domain.pddl',
+                          'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/sailing/instances/instance_<ADD>.pddl',
+                          'from': 1, 'to': 20, 'name': 'sailing'}
     
     domains['satellite'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/satellite/domain.pddl',
                             'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/satellite/instances/pfile<ADD>.pddl',
                             'from': 1, 'to': 20, 'name': 'satellite'}
 
+    domains['zenotravel-small'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/zenotravel-small/domain.pddl',
+                                   'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/zenotravel-small/instances/pfile<ADD>.pddl',
+                                   'from': 1, 'to': 10, 'name': 'zenotravel'}
+
+    domains['block-grouping'] = {'domain': 'selected_domains_ipc_23/block-grouping/domain.pddl',
+                                 'instances-file-name': 'selected_domains_ipc_23/block-grouping/instances/instance_<ADD>.pddl',
+                                 'from': 1, 'to': 20, 'name': 'block-grouping'}
+    
+    domains['delivery'] = {'domain': 'selected_domains_ipc_23/delivery/domain.pddl',
+                           'instances-file-name': 'selected_domains_ipc_23/delivery/instances/prob<ADD>.pddl',
+                           'from': 1, 'to': 20, 'name': 'delivery'}
+    
+    domains['drone'] = {'domain': 'selected_domains_ipc_23/drone/domain.pddl',
+                        'instances-file-name': 'selected_domains_ipc_23/drone/instances/problem_<ADD>.pddl',
+                        'from': 1, 'to': 20, 'name': 'drone'}
+
+    domains['expedition'] = {'domain': 'selected_domains_ipc_23/expedition/domain.pddl',
+                             'instances-file-name': 'selected_domains_ipc_23/expedition/instances/pfile<ADD>.pddl',
+                             'from': 1, 'to': 20, 'name': 'expedition'}
+
+    domains['ext-plant-watering'] = {'domain': 'selected_domains_ipc_23/ext-plant-watering/domain.pddl',
+                                     'instances-file-name': 'selected_domains_ipc_23/ext-plant-watering/instances/instance_<ADD>.pddl',
+                                     'from': 1, 'to': 20, 'name': 'ext-plant-watering'}
+    
+    domains['hydropower'] = {'domain': 'selected_domains_ipc_23/hydropower/domain.pddl',
+                             'instances-file-name': 'selected_domains_ipc_23/hydropower/instances/pfile<ADD>.pddl',
+                             'from': 1, 'to': 20, 'name': 'hydropower'}
+    
+    domains['markettrader'] = {'domain': 'selected_domains_ipc_23/markettrader/domain.pddl',
+                               'instances-file-name': 'selected_domains_ipc_23/markettrader/instances/pfile<ADD>.pddl',
+                               'from': 1, 'to': 20, 'name': 'markettrader'}
+
+    domains['mprime-1'] = {'domain': 'selected_domains_ipc_23/mprime/domain.pddl',
+                           'instances-file-name': 'selected_domains_ipc_23/mprime/instances/pfile<ADD>.pddl',
+                           'from': 1, 'to': 11, 'name': 'mprime'}
+
+    domains['mprime-2'] = {'domain': 'selected_domains_ipc_23/mprime/domain.pddl',
+                           'instances-file-name': 'selected_domains_ipc_23/mprime/instances/pfile<ADD>.pddl',
+                           'from': 20, 'to': 28, 'name': 'mprime'}
+
+    domains['pathwaysmetric'] = {'domain': 'selected_domains_ipc_23/pathwaysmetric/domain.pddl',
+                                 'instances-file-name': 'selected_domains_ipc_23/pathwaysmetric/instances/pfile<ADD>.pddl',
+                                 'from': 2, 'to': 21, 'name': 'pathwaysmetric'}
+
+    domains['settlers'] = {'domain': 'selected_domains_ipc_23/settlers/settlersnumeric/domain.pddl',
+                           'instances-file-name': 'selected_domains_ipc_23/settlers/settlersnumeric/instances/pfile<ADD>.pddl',
+                           'from': 3, 'to': 22, 'name': 'settlers'}
+
+    domains['sugar'] = {'domain': 'selected_domains_ipc_23/sugar/domain.pddl',
+                        'instances-file-name': 'selected_domains_ipc_23/sugar/instances/pfile<ADD>.pddl',
+                        'from': 1, 'to': 20, 'name': 'sugar'}
+    
+    domains['tpp'] = {'domain': 'selected_domains_ipc_23/tpp/domain.pddl',
+                      'instances-file-name': 'selected_domains_ipc_23/tpp/instances/p<ADD>.pddl',
+                      'from': 2, 'to': 21, 'name': 'tpp'}
+
     planning_problems = []
     for domain in domains.keys():
         for i in range(domains[domain]['from'], domains[domain]['to']+1):
             domaininfo = {}
-            domaininfo['name'] = domains[domain]['name']
-            domaininfo['domain'] = domains[domain]['domain']
-            domaininfo['instance'] = domains[domain]['instances-file-name'].replace('<ADD>', str(i))
+            domaininfo['name']     = domains[domain]['name']
+            domaininfo['domain']   = os.path.join(BASE_DIR, domains[domain]['domain'])
+            domaininfo['instance'] = os.path.join(BASE_DIR, domains[domain]['instances-file-name'].replace('<ADD>', str(i))) 
+            if not os.path.exists(domaininfo['instance']) or not os.path.exists(domaininfo['domain']):
+                raise Exception('File not found: ' + domaininfo['instance'] + ' or ' + domaininfo['domain'])
             planning_problems.append(domaininfo)
-
-
 
     return planning_problems
 

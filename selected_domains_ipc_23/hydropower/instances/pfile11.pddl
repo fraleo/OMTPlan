@@ -140,11 +140,11 @@
         (before t2330 t2400)
 
 	(= (stored_units) 0)
-	(= (stored_capacity) 10)
+	(= (stored_capacity) 15)
 	(= (funds) 1000)
 )
 	 (:goal (and
-	 (>= (funds) 1200)
+	 (>= (funds) 1300)
 	)
 )
 )

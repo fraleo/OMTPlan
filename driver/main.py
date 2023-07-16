@@ -40,6 +40,8 @@ def main(BASE_DIR):
     # Parse planner args
     args = arguments.parse_args()
 
+    problems = utils.get_planning_problems(BASE_DIR)
+
     if args.testencoding or args.testsearch:
         failed_to_encode = []
         translate_dump_dir = os.path.join(BASE_DIR, 'translate_dump')
@@ -86,15 +88,13 @@ def main(BASE_DIR):
                     else:
                         raise Exception('No test specified, use -testencoding or -testsearch')
             except Exception as error:
-                logmsg = 'Error msg when encoding problem: {}-{}:{}'.format(problem['name'], planning_task.name, error)
+                logmsg = 'Error msg when encoding problem: {}-{}:{}'.format(problem['name'], problem['instance'], error)
                 failed_to_encode.append(logmsg)
-                
-        # dump failed to encode problems to file.
-        if len(failed_to_encode) > 0:
-            with open(os.path.join(BASE_DIR, 'failed_to_encode.txt'), 'w') as f:
-                for logmsg in failed_to_encode:
-                    f.write(logmsg)
-                    f.write('\n')
+                # dump failed to encode problems to file.
+                with open(os.path.join(BASE_DIR, 'failed_to_encode.txt'), 'w') as f:
+                    for logmsg in failed_to_encode:
+                        f.write(logmsg)
+                        f.write('\n')
         exit()
 
     # Compose encoder and search
