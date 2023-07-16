@@ -64,7 +64,7 @@ def buildDTables(encoder):
         for pre in action.preconditions:
             if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
                 for var_name in FreeVarsExtractor().get(pre):
-                    tpre.append(encoder.touched_variables[var_name])
+                    tpre.append(encoder.touched_variables[str(var_name)])
                     if pre.node_type == OperatorKind.NOT:
                         tmp = [z3.Not(encoder.boolean_variables[step-1][str(var_name)]), encoder.touched_variables[str(var_name)]]
                     else:
@@ -72,14 +72,15 @@ def buildDTables(encoder):
                     
                     tpre_rel.append(tuple(tmp))
             else:
-                tmp = []
+                expr = utils.inorderTraverse(pre, encoder.problem_z3_variables, step-1, encoder.problem_constant_numerics)
+                tmp = [expr]
                 for var_name in FreeVarsExtractor().get(pre):
                     tpre.append(encoder.touched_variables[str(var_name)])
                     tmp.append(encoder.touched_variables[str(var_name)])
-                tpre.append(tuple(tmp))
+                tpre_rel.append(tuple(tmp))
             
         # TODO: These is a bug here, the but is that the edges should be between two predicates, not between mulitple predicates.
-        
+
                             
         # Append effects.
         for effect in action.effects:

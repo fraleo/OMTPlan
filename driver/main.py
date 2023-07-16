@@ -96,7 +96,7 @@ def main(BASE_DIR):
         if args.translate:
             formula = e.encode(args.translate)
             # Print OMT planning formula (linear) to file
-            utils.printOMTFormula(formula,task.name)            
+            utils.printOMTFormula(formula,task.name, BASE_DIR)            
         else:
             s = search.SearchOMT(e, args.b)
             plan = s.do_search()        
@@ -106,7 +106,10 @@ def main(BASE_DIR):
         sys.exit()
 
     if not args.translate:
-        plan.validate()
+        if plan.validate():
+            print('The plan is valid')
+        else:
+            print('The plan is invalid')
 
 if __name__ == '__main__':
     main()
