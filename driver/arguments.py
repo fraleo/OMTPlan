@@ -68,6 +68,8 @@ def parse_args():
 
     parser.add_argument('-testencoding', action='store_true', help='Tests encoding for a given problem.')
 
+    parser.add_argument('-testsearch', action='store_true', help='Tests search for a given problem.')
+
 
     args = parser.parse_args()
 

@@ -35,8 +35,8 @@ class Plan():
 
     def __init__(self,model, encoder, objective=None):
         self.encoder = deepcopy(encoder)
-        self.plan = self._extractPlan(model)
-        self.cost = self._extractCost(objective)
+        self.plan    = self._extractPlan(model)
+        self.cost    = self._extractCost(objective)
 
     def _extractPlan(self, model):
         """!
@@ -49,8 +49,7 @@ class Plan():
         @return  plan: dictionary containing plan. Keys are steps, values are actions.
         """
         plan = []
-        index = 0
-
+ 
         ## linearize partial-order plan
         for step in range(self.encoder.horizon):
             for action in self.encoder.ground_problem.actions:
@@ -67,13 +66,7 @@ class Plan():
 
         @return cost: plan cost (metric value if problem is metric, plan length otherwise)
         """
-
-        if objective:
-            cost = objective.value()
-        else:
-            cost = len(self.plan.actions)
-
-        return cost
+        return objective.value() if objective else len(self.plan.actions)
 
     def validate(self):
         """!
@@ -89,23 +82,3 @@ class Plan():
         with PlanValidator(problem_kind=self.encoder.ground_problem.kind, plan_kind=self.plan.kind) as validator:
             return validator.validate(self.encoder.ground_problem, self.plan)
             
-        
-
-    def pprint(self, dest):
-        """!
-        Prints plan to file.
-
-        @param dest: path to destination folder.
-        """
-
-        # Default destination
-        dest = dest+'/plan_file.txt'
-
-        print('Printing plan to {}'.format(dest))
-
-        # Create string containing plan
-
-        plan_to_str = '\n'.join('{}: {}'.format(key, val) for key, val in self.plan.items())
-
-        with open(dest,'w') as f:
-            f.write(plan_to_str)

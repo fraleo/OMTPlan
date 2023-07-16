@@ -40,23 +40,59 @@ def main(BASE_DIR):
     # Parse planner args
     args = arguments.parse_args()
 
-    if args.testencoding:
+    if args.testencoding or args.testsearch:
+        failed_to_encode = []
         translate_dump_dir = os.path.join(BASE_DIR, 'translate_dump')
         if not os.path.exists(translate_dump_dir):
             os.makedirs(translate_dump_dir)
         problems = utils.get_planning_problems(BASE_DIR)
         for problem in problems:
-            planning_task = PDDLReader().parse_problem(problem['domain'], problem['instance'])
-            print('Encoding problem: {}-{}'.format(problem['name'], planning_task.name))
-            if args.smt:
-                e = encoder.EncoderSMT(planning_task, modifier.LinearModifier() if args.linear else modifier.ParallelModifier())
-                formula = e.encode(1)
-                utils.printSMTFormula(formula, '{}-{}'.format(problem['name'], planning_task.name), translate_dump_dir)
-            elif args.omt:
-                e = encoder.EncoderOMT(planning_task, modifier.LinearModifier() if args.linear else modifier.ParallelModifier())
-                formula = e.encode(1)
-                utils.printOMTFormula(formula, '{}-{}'.format(problem['name'], planning_task.name), translate_dump_dir)
+            try:
+                planning_task = PDDLReader().parse_problem(problem['domain'], problem['instance'])
+                if args.smt:
+                    if args.testencoding:
+                        e = encoder.EncoderSMT(planning_task, modifier.LinearModifier() if args.linear else modifier.ParallelModifier())
+                        print('SMT: Encoding problem: {}-{}'.format(problem['name'], planning_task.name))
+                        formula = e.encode(1)
+                        utils.printSMTFormula(formula, '{}-{}'.format(problem['name'], planning_task.name), translate_dump_dir)
+                    elif args.testsearch:
+                        print('SMT: Solving problem: {}-{}'.format(problem['name'], planning_task.name))
+                        s = search.SearchSMT(e, args.b)
+                        plan = s.do_linear_search()
+                        if plan.validate():
+                            print('SMT: Plan found valid!')
+                        else:
+                            raise Exception('SMT: Plan found invalid!')
+                    else:
+                        raise Exception('No test specified, use -testencoding or -testsearch')
+                elif args.omt:
+                    e = encoder.EncoderOMT(planning_task, modifier.LinearModifier() if args.linear else modifier.ParallelModifier())
+                    if args.testencoding:
+                        print('OMT: Encoding problem: {}-{}'.format(problem['name'], planning_task.name))
+                        formula = e.encode(1)
+                        utils.printOMTFormula(formula, '{}-{}'.format(problem['name'], planning_task.name), translate_dump_dir)
+                    elif args.testsearch:
+                        print('OMT: Solving problem: {}-{}'.format(problem['name'], planning_task.name))
+                        s = search.SearchOMT(e, args.b)
+                        plan = s.do_search()
+                        if plan.validate():
+                            print('OMT: Plan found valid!')
+                        else:
+                            raise Exception('OMT: Plan found invalid!')
+                    else:
+                        raise Exception('No test specified, use -testencoding or -testsearch')
+            except Exception as error:
+                logmsg = 'Error msg when encoding problem: {}-{}:{}'.format(problem['name'], planning_task.name, error)
+                failed_to_encode.append(logmsg)
+                
+        # dump failed to encode problems to file.
+        if len(failed_to_encode) > 0:
+            with open(os.path.join(BASE_DIR, 'failed_to_encode.txt'), 'w') as f:
+                for logmsg in failed_to_encode:
+                    f.write(logmsg)
+                    f.write('\n')
         exit()
+
 
 
     # Compose encoder and search
@@ -108,6 +144,7 @@ def main(BASE_DIR):
     if not args.translate:
         if plan.validate():
             print('The plan is valid')
+            print(plan.plan)
         else:
             print('The plan is invalid')
 
