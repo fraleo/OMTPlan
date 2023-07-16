@@ -54,8 +54,8 @@ def main(BASE_DIR):
             try:
                 planning_task = PDDLReader().parse_problem(problem['domain'], problem['instance'])
                 if args.smt:
+                    e = encoder.EncoderSMT(planning_task, modifier.LinearModifier() if args.linear else modifier.ParallelModifier())
                     if args.testencoding:
-                        e = encoder.EncoderSMT(planning_task, modifier.LinearModifier() if args.linear else modifier.ParallelModifier())
                         print('SMT: Encoding problem: {}-{}'.format(problem['name'], planning_task.name))
                         formula = e.encode(1)
                         utils.printSMTFormula(formula, '{}-{}'.format(problem['name'], planning_task.name), translate_dump_dir)
