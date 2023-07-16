@@ -40,13 +40,15 @@ def main(BASE_DIR):
     # Parse planner args
     args = arguments.parse_args()
 
-    problems = utils.get_planning_problems(BASE_DIR)
-
     if args.testencoding or args.testsearch:
         failed_to_encode = []
+        solved_problems  = []
         translate_dump_dir = os.path.join(BASE_DIR, 'translate_dump')
         if not os.path.exists(translate_dump_dir):
             os.makedirs(translate_dump_dir)
+        exps_dump_dir = os.path.join(BASE_DIR, 'exps_dump')
+        if not os.path.exists(exps_dump_dir):
+            os.makedirs(exps_dump_dir)
         problems = utils.get_planning_problems(BASE_DIR)
         for problem in problems:
             try:
@@ -65,6 +67,11 @@ def main(BASE_DIR):
                             raise Exception('SMT: No plan found!')
                         if plan.validate():
                             print('SMT: Plan found valid!')
+                            solved_problems.append('SMT-solved: {}-{}'.format(problem['name'], planning_task.name))
+                            with open(os.path.join(exps_dump_dir, 'smt-solved-problems.txt'), 'w') as f:
+                                for logmsg in solved_problems:
+                                    f.write(logmsg)
+                                    f.write('\n')
                         else:
                             raise Exception('SMT: Plan found invalid!')
                     else:
@@ -80,9 +87,14 @@ def main(BASE_DIR):
                         s = search.SearchOMT(e, args.b)
                         plan = s.do_search()
                         if len(plan.plan.actions) == 0:
-                            raise Exception('SMT: No plan found!')
+                            raise Exception('OMT: No plan found!')
                         if plan.validate():
                             print('OMT: Plan found valid!')
+                            solved_problems.append('OMT-solved: {}-{}'.format(problem['name'], planning_task.name))
+                            with open(os.path.join(exps_dump_dir, 'omt-solved-problems.txt'), 'w') as f:
+                                for logmsg in solved_problems:
+                                    f.write(logmsg)
+                                    f.write('\n')
                         else:
                             raise Exception('OMT: Plan found invalid!')
                     else:
@@ -91,7 +103,7 @@ def main(BASE_DIR):
                 logmsg = 'Error msg when encoding problem: {}-{}:{}'.format(problem['name'], problem['instance'], error)
                 failed_to_encode.append(logmsg)
                 # dump failed to encode problems to file.
-                with open(os.path.join(BASE_DIR, 'failed_to_encode.txt'), 'w') as f:
+                with open(os.path.join(exps_dump_dir, 'failed_to_encode.txt'), 'w') as f:
                     for logmsg in failed_to_encode:
                         f.write(logmsg)
                         f.write('\n')

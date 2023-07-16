@@ -104,3 +104,4 @@ venv.bak/
 .mypy_cache/
 translate_dump/
 *.smt2
+exps_dump/
