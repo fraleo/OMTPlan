@@ -13,7 +13,8 @@
             // "args" : ["-linear", "-omt", "-domain", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/fo-counters/domain.pddl", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/fo-counters/instances/instance_2.pddl"],
             // "args" : ["-linear", "-omt",   "-domain", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/zenotravel-linear/domain.pddl", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/zenotravel-linear/instances/pfile1.pddl"],
             // "args" : ["-linear", "-smt", "-domain", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/domain.pddl", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/instances/instance_1_1_1229.pddl"],
-            "args" : ["-linear", "-omt", "-testsearch", "-domain", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/domain.pddl", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/instances/instance_1_1_1229.pddl"],
+            // "args" : ["-linear", "-omt", "-testsearch", "-domain", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/domain.pddl", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/instances/instance_1_1_1229.pddl"],
+            "args" : ["-linear", "-omt", "-testencoding", "-domain", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/domain.pddl", "${workspaceFolder}/pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/instances/instance_1_1_1229.pddl"],
             "console": "integratedTerminal",
             "justMyCode": true
         }
