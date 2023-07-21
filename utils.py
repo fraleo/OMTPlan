@@ -144,7 +144,10 @@ def inorderTraverse(root, z3_variable, step, numeric_constants, z3_touched_varia
             return expression
         # these two should be retreived from the elements we already computed.
         elif root.node_type == OperatorKind.NOT:
-            return z3.Not(z3_variable[step][str(root.args[0])])
+            if root.args[0].node_type == OperatorKind.FLUENT_EXP:
+                return z3.Not(z3_variable[step][str(root.args[0])])
+            else:
+                return z3.Not(inorderTraverse(root.args[0], z3_variable, step, numeric_constants, z3_touched_variables))
         elif root.node_type in [OperatorKind.BOOL_CONSTANT, OperatorKind.FLUENT_EXP]:
             if str(root) in list(numeric_constants.keys()):
                 return z3.RealVal(numeric_constants[str(root)])
