@@ -87,7 +87,11 @@ def inorderTraverse(root, z3_variable, step, numeric_constants, z3_touched_varia
                 return z3_variable[step+1][str(root.fluent)] == operand_1 - operand_2
             elif root.kind == EffectKind.ASSIGN:
                 var = inorderTraverse(root.fluent, z3_variable, step+1, numeric_constants, z3_touched_variables)
-                return var if root.value.is_true() else z3.Not(var)
+                # We don't have a way to check whether a variable is boolean or not
+                try:
+                    return var if root.value.is_true() else z3.Not(var)
+                except:
+                    return var == operand_2
     elif isinstance(root, unified_planning.model.fnode.FNode):
         if root.node_type in [OperatorKind.AND, OperatorKind.OR]:
             operands = []
