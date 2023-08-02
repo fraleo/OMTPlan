@@ -82,6 +82,7 @@ class SearchSMT(Search):
             model = self.solver.model()
             self.solution = plan.Plan(model, self.encoder)
         else:
+            self.solution = []
             print('Problem not solvable')
             
         return self.solution
@@ -102,7 +103,7 @@ class SearchOMT(Search):
         percentages = [10,15,25,35,50,75,100]
 
         def percentage(percent, whole):
-            return (percent * whole) / 100
+            return int((percent * whole) / 100)
 
         for p in percentages:
             schedule.append(percentage(p,self.ub))
@@ -154,6 +155,7 @@ class SearchOMT(Search):
             # see Theorem 1 in related paper
 
             if res == unsat:
+                self.solution = []
                 print('Problem not solvable')
 
             else:

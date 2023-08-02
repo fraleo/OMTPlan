@@ -19,6 +19,7 @@ To run OMTPlan, make sure you have the following on your machine
 * [NetworkX](https://networkx.github.io/) (as simple as `pip install networkx`)
 * the [VAL](https://github.com/KCL-Planning/VAL) plan validation software. [Here](http://www.fast-downward.org/SettingUpVal) you can find some instructions to help you set it up. 
 Once built, add the *validate* binary to  the `/bin` folder.
+* [Unified-planning](https://github.com/aiplan4eu/unified-planning).
 
 
 

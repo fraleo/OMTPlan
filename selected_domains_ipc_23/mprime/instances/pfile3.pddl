@@ -1,0 +1,62 @@
+(define (problem mprime-x-4)
+   (:domain mystery-prime-typed)
+   (:objects muffin ham scallion shrimp cherry grapefruit bacon
+             arugula scallop wurst - food
+             aesthetics - pleasure
+             hangover dread sciatica jealousy loneliness abrasion anger
+             - pain
+)
+   (:init
+(= (locale cherry) 4)
+          (eats ham muffin)
+          (eats cherry shrimp)
+(= (locale scallion) 1)
+          (craves dread ham)
+          (eats cherry ham)
+          (eats grapefruit scallop)
+          (craves sciatica grapefruit)
+          (eats wurst bacon)
+          (eats muffin ham)
+
+          (eats arugula scallop)
+          (eats arugula bacon)
+          (eats bacon wurst)
+          (eats arugula muffin)
+          (craves anger wurst)
+          (eats scallion shrimp)
+          (eats arugula wurst)
+(= (locale arugula) 4)
+          (eats grapefruit wurst)
+          (craves loneliness arugula)
+(= (harmony aesthetics) 1)
+          (eats muffin cherry)
+          (eats scallop arugula)
+(= (locale muffin) 4)
+(= (locale grapefruit) 0)
+          (craves hangover muffin)
+          (eats cherry arugula)
+          (eats shrimp scallion)
+(= (locale ham) 2)
+          (eats muffin scallion)
+          (eats arugula cherry)
+          (eats scallop grapefruit)
+          (craves abrasion scallop)
+          (eats bacon arugula)
+          (eats ham cherry)
+          (eats cherry muffin)
+(= (locale bacon) 1)
+(= (locale wurst) 0)
+
+(= (locale scallop) 3)
+          (eats shrimp cherry)
+          (eats wurst arugula)
+
+          (eats muffin arugula)
+
+          (craves aesthetics shrimp)
+          (eats scallion muffin)
+
+(= (locale shrimp) 2)
+          (craves jealousy bacon)
+          (eats wurst grapefruit))
+   (:goal (and (craves sciatica wurst))))

@@ -20,10 +20,14 @@
 
 import networkx as nx
 import utils
-import translate.pddl as pddl
+import unified_planning
+# import translate.pddl as pddl
 from collections import defaultdict
 from z3 import *
 import itertools
+from unified_planning.model.operators import *
+from unified_planning.shortcuts import *
+from unified_planning.model.walkers import *
 
 
 
@@ -35,8 +39,7 @@ def buildDTables(encoder):
     @return edges: edges of the dependency graph.
     @return table: datastructure containing info to build loop formula.
     """
-
-
+    
     # Edges of dependency graph
     edges = []
 
@@ -46,9 +49,8 @@ def buildDTables(encoder):
 
     table = defaultdict(dict)
 
-    step = encoder.horizon+1
-
-    for action in encoder.actions:
+    step = encoder.horizon + 1
+    for action in encoder.ground_problem.actions:
         # preconditions of action
         tpre = []
 
@@ -58,77 +60,33 @@ def buildDTables(encoder):
         # effects of action
         teff = []
 
-        ## Store preconditions (concrete and relaxed)
-        for pre in action.condition:
-            # propositional precondition
-            if utils.isBoolFluent(pre):
-                var_name = utils.varNameFromBFluent(pre)
-                tpre.append(encoder.touched_variables[var_name])
-                if pre.negated:
-                    tmp = [Not(encoder.boolean_variables[step-1][var_name]),encoder.touched_variables[var_name]]
-                else:
-                    tmp = [encoder.boolean_variables[step-1][var_name],encoder.touched_variables[var_name]]
-
-                tpre_rel.append(tuple(tmp))
-
-            # numeric precondition
-            elif isinstance(pre, pddl.conditions.FunctionComparison):
-                expr = utils.inorderTraversalFC(encoder,pre,encoder.numeric_variables[step-1])
-
+        # Append preconditions
+        for pre in action.preconditions:
+            if pre.node_type in [OperatorKind.FLUENT_EXP, OperatorKind.NOT]:
+                for var_name in FreeVarsExtractor().get(pre):
+                    tpre.append(encoder.touched_variables[str(var_name)])
+                    if pre.node_type == OperatorKind.NOT:
+                        tmp = [z3.Not(encoder.boolean_variables[step-1][str(var_name)]), encoder.touched_variables[str(var_name)]]
+                    else:
+                        tmp = [encoder.boolean_variables[step-1][str(var_name)],encoder.touched_variables[str(var_name)]]
+                    
+                    tpre_rel.append(tuple(tmp))
+            else:
+                expr = utils.inorderTraverse(pre, encoder.problem_z3_variables, step-1, encoder.problem_constant_numerics)
                 tmp = [expr]
-
-                for var_name in utils.extractVariablesFC(encoder,pre):
-                    tpre.append(encoder.touched_variables[var_name])
-                    tmp.append(encoder.touched_variables[var_name])
-
+                for var_name in FreeVarsExtractor().get(pre):
+                    tpre.append(encoder.touched_variables[str(var_name)])
+                    tmp.append(encoder.touched_variables[str(var_name)])
                 tpre_rel.append(tuple(tmp))
-            else:
-                raise Exception('Precondition \'{}\' of type \'{}\' not supported'.format(pre,type(pre)))
+            
+        # TODO: These is a bug here, the but is that the edges should be between two predicates, not between mulitple predicates.
 
-
-        # Store add effects
-        for add in action.add_effects:
-            # check if effect is conditional
-            if len(add[0])==0:
-                var_name = utils.varNameFromBFluent(add[1])
-                teff.append(encoder.touched_variables[var_name])
-            else:
-                raise Exception('Conditional effects not supported')
-
-
-        # Store delete effects
-        for de in action.del_effects:
-            # check if effect is conditional
-            if len(de[0]) == 0:
-                var_name = utils.varNameFromBFluent(de[1])
-                teff.append(encoder.touched_variables[var_name])
-            else:
-                raise Exception('Conditional effects not supported')
-
-        # Store numeric effects
-
-        for ne in action.assign_effects:
-            #  check if effect is conditional
-            if len(ne[0]) == 0:
-
-                if isinstance(ne[1], pddl.f_expression.FunctionAssignment):
-
-                    ## Numeric effects have fluents on the left and either a const, a fluent
-                    ## or a complex numeric expression on the right
-
-                    ## Handle left side
-                    # retrieve variable name
-                    var_name = utils.varNameFromNFluent(ne[1].fluent)
-                    if not var_name in encoder.var_objective:
-                        teff.append(encoder.touched_variables[var_name])
-
-                else:
-
-                    raise Exception('Numeric effect {} not supported yet'.format(ne[1]))
-            else:
-                raise Exception('Conditional effects not supported')
-
-
+                            
+        # Append effects.
+        for effect in action.effects:
+            if str(effect.fluent) in encoder.touched_variables and not str(effect.fluent) in encoder.var_objective:
+                teff.append(encoder.touched_variables[str(effect.fluent)])
+        
         ## Pupulate edges
         for p in tpre:
             for e in teff:
@@ -136,15 +94,17 @@ def buildDTables(encoder):
 
         ## Fill lookup table
 
-        table[action.name]['pre'] = tpre
+        table[action.name]['pre']     = tpre
         table[action.name]['pre_rel'] = tpre_rel
-        table[action.name]['eff'] = teff
+        table[action.name]['eff']     = teff
+        
+        if len(action.conditional_effects) > 0:
+            raise Exception("Conditional effects are not supported yet")
 
     ## Remove duplicate edges
     edges = set(edges)
 
     return edges, table
-
 
 def computeSCC(edges):
     """!
@@ -160,7 +120,7 @@ def computeSCC(edges):
 
     scc_original = nx.strongly_connected_components(g)
 
-    self_loops = set([n for n in g.nodes_with_selfloops()])
+    self_loops = set([n for n in nx.nodes_with_selfloops(g)])
 
     scc_purged = []
 
@@ -182,11 +142,11 @@ def encodeLoopFormulas(encoder):
     @param encoder
     @return lf: list of loop formulas.
     """
-
+    
     lf = []
 
     ## reverse map touched vars
-    inv_touched_variables = {v: k for k, v in encoder.touched_variables.iteritems()}
+    inv_touched_variables = {v: k for k, v in encoder.touched_variables.items()}
 
     ## compute data to build loop formulas
     edges, table = buildDTables(encoder)
@@ -243,9 +203,9 @@ def encodeLoopFormulas(encoder):
                         if len(set(combo) & loop) > 0:
                             pass
                         else:
-                            R.append(And(combo))
+                            R.append(z3.And(combo))
 
-        lf.append(Implies(Or(L), Or(set(R))))
+        lf.append(z3.Implies(z3.Or(L), z3.Or(set(R))))
 
 
     return lf

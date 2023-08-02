@@ -17,34 +17,14 @@
 ##    You should have received a copy of the GNU General Public License
 ##    along with OMTPlan.  If not, see <https://www.gnu.org/licenses/>.
 ############################################################################
-
+import os
+import re
 from z3 import *
-import translate.pddl as pddl
+from unified_planning.model.operators import *
+from unified_planning.model.walkers import *
+from unified_planning.shortcuts import *
 
-
-def getDomainName(task_filename):
-    """!
-    Tries to find PDDL domain file when only problem file is supplied.
-
-    @param task_filename: path to PDDL problem file.
-
-    @return domain_filename: path to PDDL domain, if found.
-    """
-
-    dirname, basename = os.path.split(task_filename)
-    ## look for domain in folder or  folder up
-    domain_filename = os.path.join(dirname, "domain.pddl")
-    os.path.exists(domain_filename)
-    if not os.path.exists(domain_filename):
-      domain_filename = os.path.join(dirname, "../domain.pddl")
-    if not os.path.exists(domain_filename) and re.match(r"p[0-9][0-9]\b", basename):
-      domain_filename = os.path.join(dirname, basename[:4] + "domain.pddl")
-    if not os.path.exists(domain_filename) and re.match(r"p[0-9][0-9]\b", basename):
-      domain_filename = os.path.join(dirname, basename[:3] + "-domain.pddl")
-    if not os.path.exists(domain_filename):
-      raise SystemExit("Error: Could not find domain file using "
-                       "automatic naming rules.")
-    return domain_filename
+import unified_planning
 
 def getValFromModel(assignment):
     """!
@@ -68,37 +48,6 @@ def getValFromModel(assignment):
     else:
         raise Exception('Unknown type for assignment')
 
-
-def varNameFromNFluent(fluent):
-    """!
-        Returns variable name used for encoding
-        numeric fluents in SMT.
-
-        @param fluent: Numeric PDDL fluent
-        @returns Z3 variable name.
-    """
-
-    args = [arg.name for arg in fluent.args]
-
-    if len(args) == 0:
-        return fluent.symbol
-    return '{}_{}'.format(fluent.symbol,'_'.join(args))
-
-def varNameFromBFluent(fluent):
-    """!
-        Returns variable name used for encoding
-        boolean fluents in SMT.
-
-        @param fluent: Propositional PDDL fluent.
-        @return Z3 variable name.
-    """
-
-    args = [arg.name for arg in fluent.args]
-    if len(args) == 0:
-        return fluent.predicate
-    return '{}_{}'.format(fluent.predicate,  '_'.join(args))
-
-
 def isBoolFluent(fluent):
     """!
     Checks if fluent is propositional.
@@ -106,11 +55,7 @@ def isBoolFluent(fluent):
     @param fluent: PDDL fluent.
     @return Truth value.
     """
-
-    if isinstance(fluent, (pddl.conditions.Atom, pddl.conditions.NegatedAtom)):
-        return True
-    else:
-        return False
+    return fluent.node_type in [OperatorKind.NOT, OperatorKind.FLUENT_EXP]
 
 def isNumFluent(fluent):
     """!
@@ -119,257 +64,109 @@ def isNumFluent(fluent):
     @param fluent: PDDL fluent.
     @return Truth value.
     """
-    if isinstance(fluent, (pddl.f_expression.FunctionalExpression, pddl.f_expression.FunctionAssignment)):
-        return True
+    return fluent.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]
+
+def inorderTraverse(root, z3_variable, step, numeric_constants, z3_touched_variables = None):
+    #if root is None,return
+    if isinstance(root, list):
+        subgoals = []
+        for subgoal in root:
+            subgoals.append(inorderTraverse(subgoal, z3_variable, step, numeric_constants, z3_touched_variables))
+        if root[0].node_type == OperatorKind.AND:
+            return z3.And(subgoals) if len(subgoals) > 1 else subgoals[0]
+        else:
+            return z3.Or(subgoals) if len(subgoals) > 1 else subgoals[0]
+    elif isinstance(root, unified_planning.model.effect.Effect):
+        if root.kind in [EffectKind.INCREASE, EffectKind.DECREASE, EffectKind.ASSIGN]:
+            operand_1 = inorderTraverse(root.fluent, z3_variable, step, numeric_constants, z3_touched_variables)
+            operand_2 = inorderTraverse(root.value,  z3_variable, step, numeric_constants, z3_touched_variables)
+            if root.kind == EffectKind.INCREASE:
+                #self.numeric_variables[step+1][fluent_name] == self.numeric_variables[step][fluent_name] + add_var))
+                return z3_variable[step+1][str(root.fluent)] == operand_1 + operand_2
+            elif root.kind == EffectKind.DECREASE:
+                return z3_variable[step+1][str(root.fluent)] == operand_1 - operand_2
+            elif root.kind == EffectKind.ASSIGN:
+                var = inorderTraverse(root.fluent, z3_variable, step+1, numeric_constants, z3_touched_variables)
+                # We don't have a way to check whether a variable is boolean or not
+                try:
+                    return var if root.value.is_true() else z3.Not(var)
+                except:
+                    return var == operand_2
+    elif isinstance(root, unified_planning.model.fnode.FNode):
+        if root.node_type in [OperatorKind.AND, OperatorKind.OR]:
+            operands = []
+            for arg in root.args:
+                if z3_touched_variables is not None:
+                    subgoal_z3 = inorderTraverse(arg, z3_variable, step, numeric_constants, z3_touched_variables)
+                    touched_variables = []
+                    for sg_fluent in FreeVarsExtractor().get(arg):
+                        if str(sg_fluent) in z3_touched_variables:
+                            touched_variables.append(z3_touched_variables[str(sg_fluent)])
+                    operands.append(z3.Or(subgoal_z3, z3.Or(touched_variables) if len(touched_variables) > 1 else touched_variables[0]))
+                else:
+                    operands.append(inorderTraverse(arg, z3_variable, step, numeric_constants, z3_touched_variables))
+            if root.node_type == OperatorKind.AND:
+                return z3.And(operands)
+            else:
+                return z3.Or(operands)
+        elif root.node_type == OperatorKind.EQUALS:
+            operand_1 = inorderTraverse(root.args[0], z3_variable, step, numeric_constants, z3_touched_variables)
+            operand_2 = inorderTraverse(root.args[1], z3_variable, step, numeric_constants, z3_touched_variables)
+            return operand_1 - operand_2 == z3.RealVal(0)
+        elif root.node_type in IRA_RELATIONS:
+            operand_1 = inorderTraverse(root.args[0], z3_variable, step, numeric_constants, z3_touched_variables)
+            operand_2 = inorderTraverse(root.args[1], z3_variable, step, numeric_constants, z3_touched_variables)
+
+            if root.node_type == OperatorKind.LE:
+                return operand_1 <= operand_2
+            elif root.node_type == OperatorKind.LT:
+                return operand_1 < operand_2
+            else:
+                raise Exception("Unknown relation {}".format(root.node_type))
+        elif root.node_type in IRA_OPERATORS:
+            operands = []
+            for arg in root.args:
+                operands.append(inorderTraverse(arg, z3_variable, step, numeric_constants, z3_touched_variables))
+            if root.node_type == OperatorKind.PLUS:
+                expression = operands[0] + operands[1]
+                for i in range(2, len(operands)):
+                    expression += operands[i]
+            elif root.node_type == OperatorKind.MINUS:
+                expression = operands[0] - operands[1]
+                for i in range(2, len(operands)):
+                    expression -= operands[i]
+            elif root.node_type == OperatorKind.TIMES:
+                expression = operands[0] * operands[1]
+                for i in range(2, len(operands)):
+                    expression *= operands[i]
+            elif root.node_type == OperatorKind.DIV:
+                expression = operands[0] / operands[1]
+                for i in range(2, len(operands)):
+                    expression /= operands[i]
+            else:
+                raise Exception("Unknown operator {}".format(root.node_type))
+            return expression
+        # these two should be retreived from the elements we already computed.
+        elif root.node_type == OperatorKind.NOT:
+            if root.args[0].node_type == OperatorKind.FLUENT_EXP:
+                return z3.Not(z3_variable[step][str(root.args[0])])
+            else:
+                return z3.Not(inorderTraverse(root.args[0], z3_variable, step, numeric_constants, z3_touched_variables))
+        elif root.node_type in [OperatorKind.BOOL_CONSTANT, OperatorKind.FLUENT_EXP]:
+            if str(root) in list(numeric_constants.keys()):
+                return z3.RealVal(numeric_constants[str(root)])
+            elif root.node_type == OperatorKind.BOOL_CONSTANT:
+                return z3.BoolVal(root)
+            else:
+                return z3_variable[step][str(root)]
+        elif root.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]:
+            return z3.RealVal(root)
+        else:
+            raise Exception("Unknown operator {}".format(root.node_type))
     else:
-        return False
+        raise Exception("Unknown operator {}".format(root.node_type))
 
 
-def inorderTraversal(encoder,nax, numeric_variables):
-        """!
-        Traverses the parsed domain as returned by TFD parser:
-
-        See "Using the Context-enhanced Additive Heuristic for Temporal and Numeric Planning", Eyerich et al.
-
-        @param encode object.
-        @param nax: numeric axioms returned by parser.
-        @param numeric_variables: Z3 numeric variables.
-
-        @return Z3 arithmetic expression (simple expression).
-        """
-
-        for layer, lst in encoder.axioms_by_layer.items():
-            if nax in lst:
-                break
-
-        if layer < 0:
-            # it's a const, we're good
-            assert len(nax.parts) == 1
-            return nax.parts[0].value
-
-        elif layer == 0:
-            # variable assignment
-
-            assert len(nax.parts) == 2
-            # one part contains PDDL function, i.e, SMT  variable
-            # the other contains either a PDDL function or a const
-
-            if nax.parts[0] in encoder.numeric_fluents and not nax.parts[1] in encoder.numeric_fluents:
-                fluent = nax.parts[0]
-                var_name = varNameFromNFluent(fluent)
-                l_expr = numeric_variables[var_name]
-                const_ax = nax.parts[1]
-                r_expr = inorderTraversal(encoder,encoder.axioms_by_name[const_ax],numeric_variables)
-
-            elif nax.parts[1] in encoder.numeric_fluents and not nax.parts[0] in encoder.numeric_fluents:
-                fluent = nax.parts[1]
-                var_name = varNameFromNFluent(fluent)
-                r_expr = numeric_variables[var_name]
-                const_ax = nax.parts[0]
-                l_expr = inorderTraversal(encoder,encoder.axioms_by_name[const_ax],numeric_variables)
-
-            elif nax.parts[0] in encoder.numeric_fluents and nax.parts[1] in encoder.numeric_fluents:
-                ## fluent 1
-                l_fluent = nax.parts[0]
-                var_name = varNameFromNFluent(l_fluent)
-                l_expr = numeric_variables[var_name]
-
-                ## fluent 2
-                r_fluent = nax.parts[1]
-
-                var_name = varNameFromNFluent(r_fluent)
-                r_expr = numeric_variables[var_name]
-            else:
-                raise Exception('Axiom {} not recognized.'.format(nax))
-
-
-            if nax.op == '+':
-                return l_expr + r_expr
-            elif nax.op == '-':
-                return l_expr - r_expr
-            elif nax.op == '*':
-                return l_expr * r_expr
-            elif nax.op == '/':
-                return l_expr / r_expr
-            else:
-                raise Exception('Operator not recognized')
-
-
-        else:
-            # complex expression
-            # if part is just a fluent, retrieve the corresponding SMT variable
-            # otherwise go down the graph
-
-            if nax.parts[0] in encoder.numeric_fluents and not nax.parts[0].symbol.startswith('derived!'):
-                var_name = varNameFromNFluent(nax.parts[0])
-                l_expr = numeric_variables[var_name]
-            else:
-                l_expr = inorderTraversal(encoder,encoder.axioms_by_name[nax.parts[0]],numeric_variables)
-
-
-            if nax.parts[1] in encoder.numeric_fluents and not nax.parts[1].symbol.startswith('derived!'):
-                var_name = varNameFromNFluent(nax.parts[1])
-                r_expr = numeric_variables[var_name]
-            else:
-                r_expr = inorderTraversal(encoder,encoder.axioms_by_name[nax.parts[1]],numeric_variables)
-
-
-            if nax.op == '+':
-                return l_expr + r_expr
-            elif nax.op == '-':
-                return l_expr - r_expr
-            elif nax.op == '*':
-                return l_expr * r_expr
-            elif nax.op == '/':
-                return l_expr / r_expr
-            else:
-                raise Exception('Operator not recognized')
-
-def inorderTraversalFC(encoder,condition, numeric_variables):
-        """!
-            Inorder traversal for Comparison axioms -- see "Using the Context-enhanced Additive Heuristic for Temporal and Numeric Planning", Eyerich et al.
-            Internally relies on inorderTraversal().
-
-            @param encoder
-            @param codnition: numeric PDDL condition.
-            @param numeric_variables: dictionary with Z3 variables
-
-            @return Z3 arithmetic expression (comparison).
-
-
-        """
-
-        assert len(condition.parts) == 2
-
-        # if part is just a fluent, retrieve the corresponding SMT variable
-        # otherwise go down the graph
-
-        ## HACKISH check to discard derived axioms
-
-
-        if condition.parts[0] in encoder.numeric_fluents and not condition.parts[0].symbol.startswith('derived!'):
-            var_name = varNameFromNFluent(condition.parts[0])
-            l_expr = numeric_variables[var_name]
-        else:
-            l_expr = inorderTraversal(encoder,encoder.axioms_by_name[condition.parts[0]],numeric_variables)
-
-
-        if condition.parts[1] in encoder.numeric_fluents and not condition.parts[1].symbol.startswith('derived!'):
-            var_name = utils.varNameFromNFluent(condition.parts[1])
-            r_expr = numeric_variables[var_name]
-        else:
-            r_expr = inorderTraversal(encoder,encoder.axioms_by_name[condition.parts[1]],numeric_variables)
-
-
-        if condition.comparator == '=':
-            return l_expr == r_expr
-        elif condition.comparator == '<':
-            return l_expr < r_expr
-        elif condition.comparator == '<=':
-            return l_expr <= r_expr
-        elif condition.comparator == '>':
-            return l_expr > r_expr
-        elif condition.comparator == '>=':
-            return l_expr >= r_expr
-        else:
-            raise Exception('Comparator not recognized')
-
-def extractVariables(encoder,nax,variables):
-        """!
-        Extracts variables contained in PDDL numeric expressions.
-
-        @param encoder.
-        @param nax: numeric axioms returned by TFD.
-        @param variables: dictionary containing Z3 variables.
-
-        @return variables: list of Z3 variables.
-        """
-
-        for layer, lst in encoder.axioms_by_layer.items():
-            if nax in lst:
-                break
-
-        if layer < 0:
-            return
-        elif layer == 0:
-            # variable assignment
-
-            assert len(nax.parts) == 2
-            # one part contains PDDL function, i.e, SMT  variable
-            # the other contains either a PDDL function or a const
-
-            if nax.parts[0] in encoder.numeric_fluents and not nax.parts[1] in encoder.numeric_fluents:
-                fluent = nax.parts[0]
-                variables.append(varNameFromNFluent(fluent))
-                return
-
-            elif nax.parts[1] in encoder.numeric_fluents and not nax.parts[0] in encoder.numeric_fluents:
-                fluent = nax.parts[1]
-                variables.append(varNameFromNFluent(fluent))
-                return
-
-            elif nax.parts[0] in encoder.numeric_fluents and nax.parts[1] in encoder.numeric_fluents:
-                ## fluent 1
-                l_fluent = nax.parts[0]
-                variables.append(varNameFromNFluent(l_fluent))
-
-                ## fluent 2
-                r_fluent = nax.parts[1]
-                variables.append(varNameFromNFluent(r_fluent))
-                return
-
-            else:
-                raise Exception('Axiom {} not recognized.'.format(nax))
-
-        else:
-            # complex expression
-            # if part is just a fluent, retrieve the corresponding SMT variable
-            # otherwise go down the graph
-
-            if nax.parts[0] in encoder.numeric_fluents and not nax.parts[0].symbol.startswith('derived!'):
-                variables.append(varNameFromNFluent(nax.parts[0]))
-
-            else:
-                extractVariables(encoder,encoder.axioms_by_name[nax.parts[0]],variables)
-
-            if nax.parts[1] in encoder.numeric_fluents and not nax.parts[1].symbol.startswith('derived!'):
-                variables.append(varNameFromNFluent(nax.parts[1]))
-
-            else:
-                extractVariables(encoder,encoder.axioms_by_name[nax.parts[1]],variables)
-
-
-
-def extractVariablesFC(encoder,condition):
-    """!
-    Extracts variables contained in PDDL comparison axioms.
-
-    @param encoder.
-    @param condition: PDDL comparison axiom.
-
-    @return variables: list of Z3 variables.
-    """
-    c = condition
-
-    variables = []
-
-
-    assert len(c.parts) == 2
-
-    # if part is just a fluent, retrieve the corresponding SMT variable
-    # otherwise go down the graph
-    if c.parts[0] in encoder.numeric_fluents and not c.parts[0].symbol.startswith('derived!'):
-        variables.append(varNameFromNFluent(c.parts[0]))
-    else:
-        extractVariables(encoder,encoder.axioms_by_name[c.parts[0]],variables)
-
-
-    if c.parts[1] in encoder.numeric_fluents and not c.parts[1].symbol.startswith('derived!'):
-        variables.append(varNameFromNFluent(c.parts[1]))
-    else:
-        extractVariables(encoder,encoder.axioms_by_name[c.parts[1]],variables)
-
-    return variables
 
 
 def parseMetric(encoder):
@@ -377,85 +174,18 @@ def parseMetric(encoder):
     Extracts variables appearing in PDDL metric.
 
     @param encoder.
-    @return var_names: list of Z3 variables.
+    @return var_names: list of fluents used in the mertic.
 
     """
-
-    var_names = []
-
-    def inorderTraversal(metric):
-        op = metric[0]
-
-        if op in ['+','-','*','/']:
-            l_expr = inorderTraversal(metric[1])
-
-            r_expr = inorderTraversal(metric[2])
-
-            return
-        else:
-            if isinstance(metric,basestring):
-                return float(metric)
-
-            else:
-                var_names.append('_'.join(metric))
-                return
-
-    if encoder.task.metric:
-        metric = encoder.task.metric[1]
-
-        if len(metric) == 1:
-            var_names.append(metric[0])
-        else:
-            inorderTraversal(metric)
-
-    return var_names
-
-def buildMetricExpr(encoder):
-    """!
-    Builds Z3 expression of PDDL metric.
-
-    @param encoder: encoder object.
-    @return metricExpr: Z3 expression encoding metric.
-    """
-
-    metric = encoder.task.metric[1]
-    fluents = encoder.numeric_variables[encoder.horizon]
-
-    def inorderTraversal(metric):
-        op = metric[0]
-
-        if op in ['+','-','*','/']:
-            l_expr = inorderTraversal(metric[1])
-
-            r_expr = inorderTraversal(metric[2])
-
-            if op == '+':
-                return l_expr + r_expr
-            elif op == '-':
-                return l_expr - r_expr
-            elif op == '*':
-                return l_expr * r_expr
-            elif op == '/':
-                return l_expr / r_expr
-            else:
-                raise Exception('Operator not recognized')
-        else:
-            if isinstance(metric,basestring):
-                return float(metric)
-
-            else:
-                return fluents['_'.join(metric)]
-
-
-    if len(metric) == 1:
-        metricExpr =  fluents[metric[0]]
-    else:
-        metricExpr = inorderTraversal(metric)
-
-    return  metricExpr
-
-
-def printSMTFormula(formula,problem_name):
+    metric = encoder.ground_problem.quality_metrics
+    var_names = set()
+    extractor = NamesExtractor()
+    for exp in metric:
+        for f in extractor.extract_names(exp.expression):
+            var_names.add(f)
+    return list(var_names)
+    
+def printSMTFormula(formula,problem_name, dump_to_dir):
         """!
         Prints SMT planning formula in SMT-LIB syntax.
 
@@ -471,10 +201,10 @@ def printSMTFormula(formula,problem_name):
         for _, sub_formula in formula.items():
             solver.add(sub_formula)
 
-        with open('{}.smt2'.format(problem_name),'w') as fo:
+        with open(os.path.join(dump_to_dir,'{}.smt2').format(problem_name),'w') as fo:
             fo.write(solver.to_smt2())
 
-def printOMTFormula(formula,problem_name):
+def printOMTFormula(formula,problem_name, dump_to_dir):
         """!
         Prints OMT planning formula in SMT-LIB syntax.
 
@@ -498,8 +228,147 @@ def printOMTFormula(formula,problem_name):
         # and already prints what Solver prints when to_smt2
         # is called
         
-        with open('{}.smt2'.format(problem_name),'w') as fo:
+        with open(os.path.join(dump_to_dir,'{}.smt2').format(problem_name),'w') as fo:
             fo.write(solver.sexpr())
             
 
-        
+def get_planning_problems(BASE_DIR):
+    
+
+    domains = {}
+
+    domains['fo-coutners'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-counters/domain.pddl', 
+                              'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-counters/instances/instance_<ADD>.pddl',
+                              'from': 2, 'to': 21, 'name': 'fo-counters'}
+
+    domains['fo-counters-inv'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-counters-inv/domain.pddl',
+                                  'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-counters-inv/instances/instance_<ADD>.pddl',
+                                  'from': 2, 'to': 21, 'name': 'fo-counters-inv'}
+
+    domains['fo-counters-rnd'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-counters-rnd/domain.pddl',
+                                  'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-counters-rnd/instances/instance_<ADD>.pddl',
+                                  'from': 1, 'to': 60, 'name': 'fo-counters-rnd'}
+
+    domains['fo-farmland-1']   = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-farmland/domain.pddl',
+                                  'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-farmland/instances-small/instance_<ADD>.pddl',
+                                  'from': 1, 'to': 20, 'name': 'fo-farmland'} 
+
+    domains['fo-farmland-2']   = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-farmland/domain.pddl',
+                                  'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-farmland/instances-other/instance_<ADD>.pddl',
+                                  'from': 1, 'to': 30, 'name': 'fo-farmland'} 
+
+    domains['fo-sailing']      = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/domain.pddl',
+                                    'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/fo-sailing/instances/instance_<ADD>.pddl',
+                                    'from': 1, 'to': 20, 'name': 'fo-sailing'}
+
+    domains['rover-linear'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/rover-linear/domain.pddl', 
+                               'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/rover-linear/instances/pfile<ADD>.pddl',
+                               'from': 1, 'to': 10, 'name': 'rover-linear'}
+    
+    domains['tpp-metric'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/tpp-metric/domain.pddl',
+                             'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/tpp-metric/instances/p<ADD>.pddl',
+                             'from': 1, 'to': 10, 'name': 'tpp-metric'}
+    
+    domains['zenotravle-linear'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/linear/zenotravel-linear/domain.pddl',
+                                    'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/linear/zenotravel-linear/instances/pfile<ADD>.pddl',
+                                    'from': 1, 'to': 10, 'name': 'zenotravle-linear'}
+
+    domains['counters'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/counters/domain.pddl', 
+                            'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/counters/instances/instance_<ADD>.pddl',
+                            'from': 2, 'to': 9, 'name': 'counters'}
+    
+    domains['depots'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/depots/domain.pddl',
+                            'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/depots/instances/pfile<ADD>.pddl',
+                            'from': 1, 'to': 20, 'name': 'depots'}
+    
+    domains['farmland'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/farmland/domain.pddl',
+                            'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/farmland/instances/instance_<ADD>.pddl',
+                            'from': 1, 'to': 30, 'name': 'farmland'}
+
+    domains['gardening'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/gardening/domain.pddl',
+                            'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/gardening/instances/instance_<ADD>.pddl',
+                            'from': 1, 'to': 63, 'name': 'gardening'}
+
+    domains['rover-simple'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/rover/domain.pddl',
+                               'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/rover/instances/pfile<ADD>.pddl',
+                               'from': 1, 'to': 20, 'name': 'rover'}
+    
+    domains['sailing'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/sailing/domain.pddl',
+                          'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/sailing/instances/instance_<ADD>.pddl',
+                          'from': 1, 'to': 20, 'name': 'sailing'}
+    
+    domains['satellite'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/satellite/domain.pddl',
+                            'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/satellite/instances/pfile<ADD>.pddl',
+                            'from': 1, 'to': 20, 'name': 'satellite'}
+
+    domains['zenotravel-small'] = {'domain': 'pddl_examples/benchmarks_IJCAI20/simple/zenotravel-small/domain.pddl',
+                                   'instances-file-name': 'pddl_examples/benchmarks_IJCAI20/simple/zenotravel-small/instances/pfile<ADD>.pddl',
+                                   'from': 1, 'to': 10, 'name': 'zenotravel'}
+
+    domains['block-grouping'] = {'domain': 'selected_domains_ipc_23/block-grouping/domain.pddl',
+                                 'instances-file-name': 'selected_domains_ipc_23/block-grouping/instances/instance_<ADD>.pddl',
+                                 'from': 1, 'to': 20, 'name': 'block-grouping'}
+    
+    domains['delivery'] = {'domain': 'selected_domains_ipc_23/delivery/domain.pddl',
+                           'instances-file-name': 'selected_domains_ipc_23/delivery/instances/prob<ADD>.pddl',
+                           'from': 1, 'to': 20, 'name': 'delivery'}
+    
+    domains['drone'] = {'domain': 'selected_domains_ipc_23/drone/domain.pddl',
+                        'instances-file-name': 'selected_domains_ipc_23/drone/instances/problem_<ADD>.pddl',
+                        'from': 1, 'to': 20, 'name': 'drone'}
+
+    domains['expedition'] = {'domain': 'selected_domains_ipc_23/expedition/domain.pddl',
+                             'instances-file-name': 'selected_domains_ipc_23/expedition/instances/pfile<ADD>.pddl',
+                             'from': 1, 'to': 20, 'name': 'expedition'}
+
+    domains['ext-plant-watering'] = {'domain': 'selected_domains_ipc_23/ext-plant-watering/domain.pddl',
+                                     'instances-file-name': 'selected_domains_ipc_23/ext-plant-watering/instances/instance_<ADD>.pddl',
+                                     'from': 1, 'to': 20, 'name': 'ext-plant-watering'}
+    
+    domains['hydropower'] = {'domain': 'selected_domains_ipc_23/hydropower/domain.pddl',
+                             'instances-file-name': 'selected_domains_ipc_23/hydropower/instances/pfile<ADD>.pddl',
+                             'from': 1, 'to': 20, 'name': 'hydropower'}
+    
+    domains['markettrader'] = {'domain': 'selected_domains_ipc_23/markettrader/domain.pddl',
+                               'instances-file-name': 'selected_domains_ipc_23/markettrader/instances/pfile<ADD>.pddl',
+                               'from': 1, 'to': 20, 'name': 'markettrader'}
+
+    domains['mprime-1'] = {'domain': 'selected_domains_ipc_23/mprime/domain.pddl',
+                           'instances-file-name': 'selected_domains_ipc_23/mprime/instances/pfile<ADD>.pddl',
+                           'from': 1, 'to': 11, 'name': 'mprime'}
+
+    domains['mprime-2'] = {'domain': 'selected_domains_ipc_23/mprime/domain.pddl',
+                           'instances-file-name': 'selected_domains_ipc_23/mprime/instances/pfile<ADD>.pddl',
+                           'from': 20, 'to': 28, 'name': 'mprime'}
+
+    domains['pathwaysmetric'] = {'domain': 'selected_domains_ipc_23/pathwaysmetric/domain.pddl',
+                                 'instances-file-name': 'selected_domains_ipc_23/pathwaysmetric/instances/pfile<ADD>.pddl',
+                                 'from': 2, 'to': 21, 'name': 'pathwaysmetric'}
+
+    domains['settlers'] = {'domain': 'selected_domains_ipc_23/settlers/settlersnumeric/domain.pddl',
+                           'instances-file-name': 'selected_domains_ipc_23/settlers/settlersnumeric/instances/pfile<ADD>.pddl',
+                           'from': 3, 'to': 22, 'name': 'settlers'}
+
+    domains['sugar'] = {'domain': 'selected_domains_ipc_23/sugar/domain.pddl',
+                        'instances-file-name': 'selected_domains_ipc_23/sugar/instances/pfile<ADD>.pddl',
+                        'from': 1, 'to': 20, 'name': 'sugar'}
+    
+    domains['tpp'] = {'domain': 'selected_domains_ipc_23/tpp/domain.pddl',
+                      'instances-file-name': 'selected_domains_ipc_23/tpp/instances/p<ADD>.pddl',
+                      'from': 2, 'to': 21, 'name': 'tpp'}
+
+    planning_problems = []
+    for domain in domains.keys():
+        for i in range(domains[domain]['from'], domains[domain]['to']+1):
+            domaininfo = {}
+            domaininfo['name']     = domains[domain]['name']
+            domaininfo['domain']   = os.path.join(BASE_DIR, domains[domain]['domain'])
+            domaininfo['instance'] = os.path.join(BASE_DIR, domains[domain]['instances-file-name'].replace('<ADD>', str(i))) 
+            if not os.path.exists(domaininfo['instance']) or not os.path.exists(domaininfo['domain']):
+                raise Exception('File not found: ' + domaininfo['instance'] + ' or ' + domaininfo['domain'])
+            planning_problems.append(domaininfo)
+
+    return planning_problems
+
+
+
