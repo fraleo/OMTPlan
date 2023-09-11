@@ -178,12 +178,12 @@ class SearchR2E(Search):
         self.horizon = 1 
         solver = Solver()
 
-        while horizon < self.ub :
-            solver.set("timeout", self.solver_timeout)
-            print(f'Checking horizon: {horizon}/{self.ub }')
+        while self.horizon < self.ub :
+            
+            print(f'Checking horizon: {self.horizon}/{self.ub }')
             # Build planning subformulas
             
-            formula, all_formula =  self.encoder.incremental_encoding(horizon)
+            formula, all_formula =  self.encoder.incremental_encoding(self.horizon)
 
             # Assert subformulas in solver
             for k,v in formula.items():
@@ -200,11 +200,23 @@ class SearchR2E(Search):
             res = solver.check()
 
             if res == sat:
-                print(f'Found a solution at horizon: {horizon}')
-                return solver, horizon
+                self.found = True
+                self.encoder.horizon = self.horizon
+                break
             else:
                 # Remove the old goal formula
                 solver.pop()
                 # Increment horizon until we find a solution
-                horizon = horizon + 1
-        return None, None
+                self.horizon = self.horizon + 1
+        
+        if self.found:
+            # Extract plan from model
+            model = solver.model()
+            self.solution = plan.Plan(model, self.encoder)
+            if not self.solution.validate():
+                raise Exception('R2E: Plan found invalid!')
+        else:
+            self.solution = []
+            print('Problem not solvable')
+            
+        return self.solution

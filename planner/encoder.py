@@ -51,7 +51,10 @@ class Encoder:
             self.mutexes = self._computeSerialMutexes()
         else:
             self.mutexes = self._computeParallelMutexes()
-        
+
+    def getActionsList(self):
+        return self.ground_problem.actions
+
     def _ground(self):
         # Ground the task.
 
@@ -714,7 +717,7 @@ class R2EEncoding:
         self.grounding_results = self._ground()
         self.ground_problem = self.grounding_results.problem
 
-        self.z3_action_variables          = defaultdict(dict)
+        self.action_variables          = defaultdict(dict)
         self.z3_problem_variables         = defaultdict(dict)
         self.z3_problem_constant_numerics = defaultdict(dict)
 
@@ -724,6 +727,7 @@ class R2EEncoding:
         self.z3_constants = defaultdict(dict)
 
         self.dump_models = dump_models
+        self.horizon = 0
         
     def _ground(self):
         # Ground the task.
@@ -732,7 +736,7 @@ class R2EEncoding:
             return grounder.compile(self.task, compilation_kind=CompilationKind.GROUNDING)
 
     def getAction(self, step, name):
-        return self.z3_action_variables[step][name]
+        return self.action_variables[step][name]
     
     def createVariables(self, start_step, end_step):
 
@@ -775,7 +779,7 @@ class R2EEncoding:
 
         for step in range(start_step, end_step+1):
             for action in self.ground_problem.actions:
-                self.z3_action_variables[step][action.name] = z3.Bool('{}_${}'.format(action.name,step))
+                self.action_variables[step][action.name] = z3.Bool('{}_${}'.format(action.name,step))
                 if step == 1:
                     for pre in action.preconditions:
                         precondition = utils.inorderTraverse(pre, self.z3_problem_variables, 0, self.z3_problem_constant_numerics)
@@ -872,7 +876,7 @@ class R2EEncoding:
                         precondition = z3.substitute(precondition, (exprvar, newvar[-1]))
 
                     # Commented out for debugging.
-                    actions_chain_encoding.append(z3.Implies(self.z3_action_variables[step][action.name], precondition))
+                    actions_chain_encoding.append(z3.Implies(self.action_variables[step][action.name], precondition))
 
                 replacement_vars    = []
                 for effect in action.effects:
@@ -936,12 +940,12 @@ class R2EEncoding:
                     for _varname, oldvar, newvar in replace_expr_list:
                         expr = z3.substitute(expr, (oldvar, newvar))
                     # Now we need to add the expression to the chain encoding.
-                    actions_chain_encoding.append(z3.Implies(self.z3_action_variables[step][action.name], self.z3_chain_variables_actions[step][varname][-1] == expr))
+                    actions_chain_encoding.append(z3.Implies(self.action_variables[step][action.name], self.z3_chain_variables_actions[step][varname][-1] == expr))
 
                     if len(self.z3_chain_variables_actions[step][varname]) > 1:
-                        actions_chain_encoding.append(z3.Implies(z3.Not(self.z3_action_variables[step][action.name]), self.z3_chain_variables_actions[step][varname][-1] == self.z3_chain_variables_actions[step][varname][-2]))
+                        actions_chain_encoding.append(z3.Implies(z3.Not(self.action_variables[step][action.name]), self.z3_chain_variables_actions[step][varname][-1] == self.z3_chain_variables_actions[step][varname][-2]))
                     else:
-                        actions_chain_encoding.append(z3.Implies(z3.Not(self.z3_action_variables[step][action.name]), self.z3_chain_variables_actions[step][varname][-1] == self.z3_chain_variables_actions[step-1][varname][-1]))
+                        actions_chain_encoding.append(z3.Implies(z3.Not(self.action_variables[step][action.name]), self.z3_chain_variables_actions[step][varname][-1] == self.z3_chain_variables_actions[step-1][varname][-1]))
 
                 for boolean_expr in boolean_expr:
                     # collect all replace vars for this expression.
@@ -954,15 +958,15 @@ class R2EEncoding:
                     # For booleans the variable should be the same as the expression.
                     
                     if expr.decl().kind() == z3.Z3_OP_NOT:
-                        actions_chain_encoding.append(z3.Implies(self.z3_action_variables[step][action.name], self.z3_chain_variables_actions[step][varname][-1] == z3.BoolVal(False)))
+                        actions_chain_encoding.append(z3.Implies(self.action_variables[step][action.name], self.z3_chain_variables_actions[step][varname][-1] == z3.BoolVal(False)))
                     else:
-                        actions_chain_encoding.append(z3.Implies(self.z3_action_variables[step][action.name], self.z3_chain_variables_actions[step][varname][-1] == z3.BoolVal(True)))
+                        actions_chain_encoding.append(z3.Implies(self.action_variables[step][action.name], self.z3_chain_variables_actions[step][varname][-1] == z3.BoolVal(True)))
                     
                     # Chaining the varibale if the action is not enabled.
                     if len(self.z3_chain_variables_actions[step][varname]) > 1:
-                        actions_chain_encoding.append(z3.Implies(z3.Not(self.z3_action_variables[step][action.name]), self.z3_chain_variables_actions[step][varname][-1] == self.z3_chain_variables_actions[step][varname][-2]))
+                        actions_chain_encoding.append(z3.Implies(z3.Not(self.action_variables[step][action.name]), self.z3_chain_variables_actions[step][varname][-1] == self.z3_chain_variables_actions[step][varname][-2]))
                     else:
-                        actions_chain_encoding.append(z3.Implies(z3.Not(self.z3_action_variables[step][action.name]), self.z3_chain_variables_actions[step][varname][-1] == self.z3_chain_variables_actions[step-1][varname][-1]))
+                        actions_chain_encoding.append(z3.Implies(z3.Not(self.action_variables[step][action.name]), self.z3_chain_variables_actions[step][varname][-1] == self.z3_chain_variables_actions[step-1][varname][-1]))
 
         return actions_chain_encoding
 
