@@ -171,3 +171,40 @@ class SearchOMT(Search):
                     break
 
         return self.solution
+
+
+class SearchR2E(Search):
+    def do_search(self):
+        self.horizon = 1 
+        solver = Solver()
+
+        while horizon < self.ub :
+            solver.set("timeout", self.solver_timeout)
+            print(f'Checking horizon: {horizon}/{self.ub }')
+            # Build planning subformulas
+            
+            formula, all_formula =  self.encoder.incremental_encoding(horizon)
+
+            # Assert subformulas in solver
+            for k,v in formula.items():
+                if not k in ['goal']:
+                    solver.add(v)
+
+            # Now create a new instance of the solver and add the goal.
+            solver.push()
+
+            # Add the goal
+            solver.add(formula['goal'])
+
+            # Check for satisfiability
+            res = solver.check()
+
+            if res == sat:
+                print(f'Found a solution at horizon: {horizon}')
+                return solver, horizon
+            else:
+                # Remove the old goal formula
+                solver.pop()
+                # Increment horizon until we find a solution
+                horizon = horizon + 1
+        return None, None

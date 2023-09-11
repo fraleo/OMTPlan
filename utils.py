@@ -66,16 +66,17 @@ def isNumFluent(fluent):
     """
     return fluent.node_type in [OperatorKind.INT_CONSTANT, OperatorKind.REAL_CONSTANT]
 
+
 def inorderTraverse(root, z3_variable, step, numeric_constants, z3_touched_variables = None):
     #if root is None,return
     if isinstance(root, list):
         subgoals = []
         for subgoal in root:
             subgoals.append(inorderTraverse(subgoal, z3_variable, step, numeric_constants, z3_touched_variables))
-        if root[0].node_type == OperatorKind.AND:
-            return z3.And(subgoals) if len(subgoals) > 1 else subgoals[0]
-        else:
+        if root[0].node_type == OperatorKind.OR:
             return z3.Or(subgoals) if len(subgoals) > 1 else subgoals[0]
+        else:
+            return z3.And(subgoals) if len(subgoals) > 1 else subgoals[0]
     elif isinstance(root, unified_planning.model.effect.Effect):
         if root.kind in [EffectKind.INCREASE, EffectKind.DECREASE, EffectKind.ASSIGN]:
             operand_1 = inorderTraverse(root.fluent, z3_variable, step, numeric_constants, z3_touched_variables)
@@ -87,11 +88,11 @@ def inorderTraverse(root, z3_variable, step, numeric_constants, z3_touched_varia
                 return z3_variable[step+1][str(root.fluent)] == operand_1 - operand_2
             elif root.kind == EffectKind.ASSIGN:
                 var = inorderTraverse(root.fluent, z3_variable, step+1, numeric_constants, z3_touched_variables)
-                # We don't have a way to check whether a variable is boolean or not
-                try:
+                # Check the var type if it is boolean or numeric
+                if z3.is_bool(var):
                     return var if root.value.is_true() else z3.Not(var)
-                except:
-                    return var == operand_2
+                value = inorderTraverse(root.value, z3_variable, step, numeric_constants, z3_touched_variables)
+                return z3_variable[step+1][str(root.fluent)] == value
     elif isinstance(root, unified_planning.model.fnode.FNode):
         if root.node_type in [OperatorKind.AND, OperatorKind.OR]:
             operands = []
@@ -105,10 +106,10 @@ def inorderTraverse(root, z3_variable, step, numeric_constants, z3_touched_varia
                     operands.append(z3.Or(subgoal_z3, z3.Or(touched_variables) if len(touched_variables) > 1 else touched_variables[0]))
                 else:
                     operands.append(inorderTraverse(arg, z3_variable, step, numeric_constants, z3_touched_variables))
-            if root.node_type == OperatorKind.AND:
-                return z3.And(operands)
-            else:
+            if root.node_type == OperatorKind.OR:
                 return z3.Or(operands)
+            else:
+                return z3.And(operands)
         elif root.node_type == OperatorKind.EQUALS:
             operand_1 = inorderTraverse(root.args[0], z3_variable, step, numeric_constants, z3_touched_variables)
             operand_2 = inorderTraverse(root.args[1], z3_variable, step, numeric_constants, z3_touched_variables)
@@ -166,6 +167,141 @@ def inorderTraverse(root, z3_variable, step, numeric_constants, z3_touched_varia
     else:
         raise Exception("Unknown operator {}".format(root.node_type))
 
+
+def inorderTraverseRHDEffect(root, z3_variable, step, numeric_constants):
+    #if root is None,return
+    if isinstance(root, list):
+        subgoals = []
+        arithmetic_subgoals = []
+        boolean_subgoals = []
+
+        for subgoal in root:
+            _subgoal = inorderTraverseRHDEffect(subgoal, z3_variable, step, numeric_constants)
+            if z3.is_bool(_subgoal):
+                boolean_subgoals.append(_subgoal)
+            else:
+                arithmetic_subgoals.append(_subgoal)
+            subgoals.append(_subgoal)
+        return arithmetic_subgoals, boolean_subgoals
+        
+    elif isinstance(root, unified_planning.model.effect.Effect):
+        if root.kind in [EffectKind.INCREASE, EffectKind.DECREASE, EffectKind.ASSIGN]:
+            operand_1 = inorderTraverse(root.fluent, z3_variable, step, numeric_constants)
+            operand_2 = inorderTraverse(root.value,  z3_variable, step, numeric_constants)
+            if root.kind == EffectKind.INCREASE:
+                #self.numeric_variables[step+1][fluent_name] == self.numeric_variables[step][fluent_name] + add_var))
+                return operand_1 + operand_2
+            elif root.kind == EffectKind.DECREASE:
+                return operand_1 - operand_2
+            elif root.kind == EffectKind.ASSIGN:
+                var = inorderTraverse(root.fluent, z3_variable, step, numeric_constants)
+                # Check the var type if it is boolean or numeric
+                if z3.is_bool(var):
+                    return var if root.value.is_true() else z3.Not(var)
+                # There is a bug here.
+                value = inorderTraverse(root.value, z3_variable, step, numeric_constants)
+                return value
+    elif isinstance(root, unified_planning.model.fnode.FNode):
+        return inorderTraverse(root, z3_variable, step, numeric_constants)
+    else:
+        raise Exception('Unknown type for effect')
+
+def getArithBoolExprs(root, z3_variable, step, numeric_constants):
+
+    arith_ret_list = []
+    bool_ret_list = []
+    arit_subgoals, bool_subgoals = inorderTraverseRHDEffect(root, z3_variable, step, numeric_constants)
+
+    # there is no clean way to know where this ele is a boolean or arithmetic expression.
+    for ele in root:
+        z3_ele = inorderTraverseRHDEffect(ele, z3_variable, step, numeric_constants)
+        for arith_subgoal in arit_subgoals:
+            try:
+                if z3_ele == arith_subgoal:
+                    arith_ret_list.append((getZ3VariableName(ele.fluent), arith_subgoal))
+                    break
+            except:
+                break
+        for bool_subgoal in bool_subgoals:
+            try:
+                if z3_ele == bool_subgoal:
+                    bool_ret_list.append((getZ3VariableName(ele.fluent), bool_subgoal))
+                    break
+            except:
+                break
+
+    return arith_ret_list, bool_ret_list
+    return inorderTraverseRHDEffect(root, z3_variable, step, numeric_constants)
+
+def flattenEffect(eff, ret_list):
+    if len(eff.children()) == 0:
+        ret_list.append(eff)
+    else:
+        for child in eff.children():
+            flattenEffect(child, ret_list)
+    return
+
+def getActionNameFromZ3Variable(expr):
+    return str(expr).split('_$')[1]
+
+def createZ3NameFrom(expr1, expr2, step):
+    expr1str = str(expr1).replace(' ','_')
+    expr2str = str(expr2).replace(' ','_')
+    return f'{expr1str}_${expr2str}_${step}'
+
+def getAllOperandsInExpression(expr):
+    operandsnames = set()
+    collectOperandsInExpression(expr, operandsnames)
+    return operandsnames
+
+def parseZ3FormulaAndReturnReplacementVariables(formula, chain_variable_list):
+    operandsnames = getAllOperandsInExpression(formula)
+    return_list = []
+    for operand in operandsnames:
+        operand_last_creation = []
+        for step, vars_queue in chain_variable_list.items():
+            if operand in vars_queue:
+                operand_last_creation.append(vars_queue[operand][-1])
+        if len(operand_last_creation) > 0:
+            return_list.append((operand, getZ3VariableFromExpressionWithName(formula, operand), operand_last_creation))
+    return return_list
+
+def getZ3VariableFromExpressionWithName(expr, varname):
+    
+    expr_children = [expr] if len(expr.children()) == 0 else expr.children()
+    for idx, child in enumerate(expr_children):
+        # First lets loop on the children
+        if is_const(child) and getZ3VariableName(child) == varname:
+            return child
+        elif is_const(child) and not getZ3VariableName(child) == varname:
+            continue
+        else:
+            ret = getZ3VariableFromExpressionWithName(child, varname)
+            if ret is not None:
+                return ret
+
+def collectOperandsInExpression(expr, variables):
+    if is_const(expr) and expr.decl().kind() == Z3_OP_UNINTERPRETED:
+        variables.add(getZ3VariableName(expr))
+    elif is_app(expr):
+        for arg in expr.children():
+            collectOperandsInExpression(arg, variables)
+
+def createZ3Name(var, actionname, step):
+    return f'{var}_${actionname}_${step}'
+
+def getZ3VariableName(fluent):
+    """!
+    Returns Z3 variable name for a given fluent.
+
+    @param fluent: PDDL fluent.
+    @return Z3 variable name.
+    """
+    return str(fluent).split('_$')[0].replace('Not(','').replace('))',')')
+
+def getZ3Effect(root, z3_variable, step, numeric_constants):
+    z3effect = inorderTraverseRHDEffect(root, z3_variable, step, numeric_constants)
+    return (getZ3VariableName(z3effect), z3effect)
 
 
 
@@ -231,6 +367,25 @@ def printOMTFormula(formula,problem_name, dump_to_dir):
         with open(os.path.join(dump_to_dir,'{}.smt2').format(problem_name),'w') as fo:
             fo.write(solver.sexpr())
             
+def printR2EFormula(formula,problem_name, dump_to_dir):
+    """!
+    Prints R2E planning formula in SMT-LIB syntax.
+
+    @param formula
+    @param problem_name
+    """
+
+    print('Printing R2E formula to {}.smt2'.format(problem_name))
+
+    solver = Solver()
+
+    # Assert subformulas in solver
+    for _, sub_formula in formula.items():
+        solver.add(sub_formula)
+
+    with open(os.path.join(dump_to_dir,'{}.smt2').format(problem_name),'w') as fo:
+        fo.write(solver.to_smt2())
+
 
 def get_planning_problems(BASE_DIR):
     
