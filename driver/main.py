@@ -149,7 +149,15 @@ def main(BASE_DIR):
             utils.printOMTFormula(formula,task.name, BASE_DIR)            
         else:
             s = search.SearchOMT(e, args.b)
-            plan = s.do_search()        
+            plan = s.do_search()
+    elif args.r2e:
+        e = encoder.R2EEncoding(task)
+        if args.translate:
+            formula = e.encode(args.translate)
+            utils.printR2EFormula(formula, task.name, BASE_DIR)
+        else:
+            s = search.SearchR2E(e, args.b)
+            plan = s.do_search()
     else:
         print('No solving technique specified, choose between SMT or OMT.')
         print('Exiting now...')

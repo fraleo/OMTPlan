@@ -52,7 +52,7 @@ class Plan():
  
         ## linearize partial-order plan
         for step in range(self.encoder.horizon):
-            for action in self.encoder.ground_problem.actions:
+            for action in self.encoder.getActionsList():
                 if is_true(model[self.encoder.action_variables[step][action.name]]):
                     plan.append(ActionInstance(action))
         return SequentialPlan(plan, self.encoder.ground_problem.environment)

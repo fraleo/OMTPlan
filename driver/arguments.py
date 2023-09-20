@@ -64,6 +64,8 @@ def parse_args():
 
     parser.add_argument('-smt', action='store_true', help='Enables SMT encoding.')
 
+    parser.add_argument('-r2e', action='store_true', help='Enables R2E encoding.')
+
     parser.add_argument('-b', type=int, default=bound, help='Upper bound for OMTPlan search.')
 
     parser.add_argument('-testencoding', action='store_true', help='Tests encoding for a given problem.')
