@@ -80,13 +80,9 @@ class Encoder:
 
     def _computeParallelMutexes(self):
         """!
-        Computes mutually exclusive actions:
-        Two actions (a1, a2) are mutex if:
-            - intersection pre_a1 and eff_a2 (or viceversa) is non-empty
-            - intersection between eff_a1+ and eff_a2- (or viceversa) is non-empty
-            - intersection between numeric effects is non-empty
-
-        See, e.g., 'A Compilation of the Full PDDL+ Language into SMT'', Cashmore et al.
+        Computes mutually exclusive actions as per
+        
+        ''A Compilation of the Full PDDL+ Language into SMT'', Cashmore et al., ICAPS 2017
 
         @return mutex: list of tuples defining action mutexes
         """
@@ -116,8 +112,8 @@ class Encoder:
             """            
             preconditions = set()
             for pre in action.preconditions:
-                for arg in pre.args:
-                    if arg.node_type == OperatorKind.FLUENT_EXP:
+                nameextractor = FreeVarsExtractor()
+                for arg in nameextractor.get(pre):
                         preconditions.add(str(arg))
             return preconditions
 
@@ -153,7 +149,15 @@ class Encoder:
                     if num_1 & num_2:
                         mutexes.add((action_1, action_2))
 
-                    pass
+                    ## Condition 4
+                    if num_1 & pre_2:
+                        mutexes.add((action_1, action_2))
+
+                    ## Condition 5
+                    if num_2 & pre_1:
+                        mutexes.add((action_1, action_2))
+
+                    
 
         return mutexes
 
